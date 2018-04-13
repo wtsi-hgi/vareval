@@ -100,7 +100,7 @@ fi
 
 
 # normalize vcf + apply exome mask (-R ../exon_regions_chr flag; should be optional)
-my_parallel "bcftools norm -c s -Oz -f ${reference} -m -any${exome_mask_option} ${input_file_base}.chr{}.vcf.gz > ${input_file_base}.chr{}.exome.normed.vcf.gz" ::: {1..22}
+my_parallel "bcftools norm -c s -Oz -f ${reference} -any${exome_mask_option} ${input_file_base}.chr{}.vcf.gz > ${input_file_base}.chr{}.exome.normed.vcf.gz" ::: {1..22}
 
 # we should not remove the input file
 #rm ELGH_ROH.gvcf_to_vcf.20180206.hard-filtered.vcf.gz*
