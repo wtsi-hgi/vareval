@@ -1,0 +1,28 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=PASS,Description="All filters passed">
+##fileDate=20180419
+##source=RTG Tools 3.9 / Core eda9a71c (2018-03-29)
+##CL=vcfeval -b /var/folders/ck/kq1byq0977g9pnk5ywr9hjjw000h9x/T/truth.ppvle6wp.vcf.gz -c /var/folders/ck/kq1byq0977g9pnk5ywr9hjjw000h9x/T/query.ppkE0c35.vcf.gz -t /var/folders/ck/kq1byq0977g9pnk5ywr9hjjw000h9x/T/vcfeval.sdfc1CHWA.dir -o /var/folders/ck/kq1byq0977g9pnk5ywr9hjjw000h9x/T/vcfeval.resultWq0HPL.dir -T 4 -m ga4gh --ref-overlap --all-records -f QUAL --Xloose-match-distance=30
+##contig=<ID=chr2,length=10000>
+##contig=<ID=chr3,length=10000>
+##INFO=<ID=BS,Number=.,Type=Integer,Description="Benchmarking superlocus ID for these variants">
+##INFO=<ID=CALL_WEIGHT,Number=1,Type=Float,Description="Call weight (equivalent number of truth variants). When unspecified, assume 1.0">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=BD,Number=1,Type=String,Description="Decision for call (TP/FP/FN/N)">
+##FORMAT=<ID=BK,Number=1,Type=String,Description="Sub-type for decision (match/mismatch type). (Loose match distance is 30)">
+##FORMAT=<ID=BI,Number=1,Type=String,Description="Additional comparison information">
+##FORMAT=<ID=QQ,Number=1,Type=Float,Description="Variant quality for ROC creation">
+##INFO=<ID=Regions,Number=.,Type=String,Description="Tags for regions.">
+##FORMAT=<ID=BVT,Number=1,Type=String,Description="High-level variant type (SNP|INDEL).">
+##FORMAT=<ID=BLT,Number=1,Type=String,Description="High-level location type (het|homref|hetalt|homalt|nocall).">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	TRUTH	QUERY
+chr2	39	.	A	.	.	.	Regions=CONF,TS_contained	GT:BD:BI:BVT:BLT:QQ	0/0:N:.:HOMREF:homref:.	.:.:.:NOCALL:nocall:0
+chr2	43	.	A	G	.	.	BS=43;Regions=CONF,TS_contained	GT:BD:QQ:BK:BI:BVT:BLT	0/0:N:.:.:.:HOMREF:homref	0/1:FP:1:lm:ti:SNP:het
+chr2	47	.	A	G	.	.	BS=47;Regions=CONF,TS_contained	GT:BD:QQ:BK:BI:BVT:BLT	0/0:N:.:.:.:HOMREF:homref	1/1:FP:1:lm:ti:SNP:homalt
+chr2	50	.	A	T	.	.	BS=50;Regions=CONF,TS_contained	GT:BD:BK:BI:BVT:BLT:QQ	0/1:FN:lm:tv:SNP:het:.	.:.:.:.:NOCALL:nocall:0
+chr2	60	.	A	T	.	.	BS=60;Regions=CONF,TS_contained	GT:BD:BK:QQ:BI:BVT:BLT	0/1:TP:gm:1:tv:SNP:het	0/1:TP:gm:1:tv:SNP:het
+chr2	70	.	A	T	.	.	BS=70;Regions=CONF,TS_contained	GT:BD:BK:QQ:BI:BVT:BLT	0/1:FN:am:.:tv:SNP:het	1/1:FP:am:1:tv:SNP:homalt
+chr2	75	.	A	T	.	.	BS=75;Regions=CONF,TS_contained	GT:BD:BK:BI:BVT:BLT:QQ	1/1:FN:lm:tv:SNP:homalt:.	.:.:.:.:NOCALL:nocall:0
+chr2	80	.	A	T	.	.	BS=80;Regions=CONF,TS_contained	GT:BD:BK:QQ:BI:BVT:BLT	1/1:FN:am:.:tv:SNP:homalt	0/1:FP:am:1:tv:SNP:het
+chr2	85	.	A	T	.	.	BS=85;Regions=CONF,TS_contained	GT:BD:BK:QQ:BI:BVT:BLT	1/1:TP:gm:1:tv:SNP:homalt	1/1:TP:gm:1:tv:SNP:homalt
+chr2	87	.	A	.	.	.	Regions=CONF,TS_contained	GT:BD:BI:BVT:BLT:QQ	./.:N:.:NOCALL:nocall:.	.:.:.:NOCALL:nocall:0
