@@ -10,34 +10,46 @@ import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
-def varient_to_str(varient):
-    return f"{varient.CHROM}:{varient.start + 1}-{varient.end + 1}"
+def variant_to_str(variant):
+    return f"{variant.CHROM}:{variant.start + 1}-{variant.end + 1}"
 
-def is_missing_varient_in_vcf(varient: vcf.model._Record, source_vcf_reader: vcf.Reader):
+def decide_missing_query(variant: vcf.model._Record, source_vcf_reader: vcf.Reader):
     """
-    Sees if a given varient (reported as missing is the evaluation vcf) is present in a given source vcf.
-    This also throws an error if the given varient is called in the source vcf.
+    Sees if a given variant (reported as missing is the evaluation vcf) is present in a given source vcf, with a missing or HOM_REF gt.
+    This also throws an error if the given variant is called in the source vcf.
     """
-    looked_up_varients = list(source_vcf_reader.fetch(varient.CHROM, varient.start, varient.end))
+    looked_up_variants = list(source_vcf_reader.fetch(variant.CHROM, variant.start, variant.end - 1))
 
-    if len(looked_up_varients) == 0:
-        return False
-    elif len(looked_up_varients) == 1:
-        if looked_up_varients[0].num_unknown != 0:
-            raise Exception(f"Varient {varient_to_str(varient)}"
-                f" is not called in the evaluation vcf, but is in {source_vcf_reader.filename}")
+    if len(looked_up_variants) == 0:
+        #set_truth_zero += 1
+        return 0
+    elif len(looked_up_variants) == 1:
+        if looked_up_variants[0].samples[0].gt_type == 0:
+            return 0
+        elif looked_up_variants[0].samples[0].gt_type is None:
+            return 3
         else:
-            return True
+            raise Exception(f"variant {variant_to_str(variant)}"
+                f" is not genotyped in the evaluation vcf, but is in {source_vcf_reader.filename}")
     else:
-        raise Exception(f"More than one varient found with position {varient_to_str(varient)} in {source_vcf_reader.filename}")
+        raise Exception(f"More than one variant found with position {variant_to_str(variant)} in {source_vcf_reader.filename}")
+        # because we remove/merge multiallelics from truth
 
-def get_dosage_matrix_entry(varients, truth_vcf, query_vcf):
+def get_dosage_matrix_entry(variants, truth_vcf, query_vcf):
     pass
+
+def decide_missing_truth(truth_data: vcf.model._Call.data, variant: vcf.model._Record):
+    if truth_data.GT ==".":
+        return 3
+    elif truth_data.GT == "0/0":
+        return 0
+    else:
+        raise Exception(f"variant {variant_to_str(variant)} has no decision in truth, but is neither ./. nor 0/0")
 
 def get_dosage_matrix(eval_vcf: str, truth_vcf: str, query_vcf: str) -> List[List[int]]:
     """
     Creates 4*4 matrix with the query vcf dosages as rows and truth vcf as columns (0 indexed).
-    The last column and row also represents non called varients.
+    The last column and row also represents uncalled genotypes.
 
     NOTE: the eval vcf must be the result of `rtg vcfeval` using the output mode of ga4gh.
     """
@@ -52,13 +64,13 @@ def get_dosage_matrix(eval_vcf: str, truth_vcf: str, query_vcf: str) -> List[Lis
     truth_vcf_reader = vcf.Reader(filename=truth_vcf)
     query_vcf_reader = vcf.Reader(filename=query_vcf)
 
-    for variants in chunk_by(eval_vcf_reader, lambda x: x.POS):
+    for variants in chunk_by(eval_vcf_reader, lambda x: x.INFO['BS'] if 'BS' in x.INFO.keys() else x.POS):
         def increment_matrix(truth_dosage, query_dosage):
             """
             Increments the result matrix.
-            NOTE: `None` represents no varient recorded
+            NOTE: `None` represents no genotype recorded
             """
-            logger.debug(f"Setting truth={truth_dosage} query={query_dosage} for varients {list(map(varient_to_str, variants))}")
+            logger.debug(f"Setting truth={truth_dosage} query={query_dosage} for variants {list(map(variant_to_str, variants))}")
             if truth_dosage is None:
                 truth_dosage = 3
             if query_dosage is None:
@@ -68,9 +80,9 @@ def get_dosage_matrix(eval_vcf: str, truth_vcf: str, query_vcf: str) -> List[Lis
             matrix[query_dosage][truth_dosage] += 1
 
         assert len(variants) != 0
-
         if len(variants) == 1:
             variant = variants[0]
+
             truth = variant.genotype("TRUTH")
             truth_eval = truth.data.BD
             truth_dosage = truth.gt_type
@@ -83,18 +95,11 @@ def get_dosage_matrix(eval_vcf: str, truth_vcf: str, query_vcf: str) -> List[Lis
                 vcf_eval_dosage += 1
                 increment_matrix(truth_dosage, query_dosage)
             elif truth_eval is None and query_eval is not None:
-                if is_missing_varient_in_vcf(variant, truth_vcf_reader):
-                    increment_matrix(None, query_dosage)
-                else:
-                    logger.debug(f"Ignoring varient {varient_to_str(variant)} (not called in truth vcf)")
+                increment_matrix(decide_missing_truth(truth.data, variant), query_dosage)
             elif truth_eval is not None and query_eval is None:
-                if is_missing_varient_in_vcf(variant, query_vcf_reader):
-                    increment_matrix(truth_dosage, None)
-                else:
-                    set_truth_zero += 1
-                    increment_matrix(truth_dosage, 0)
+                increment_matrix(truth_dosage, decide_missing_query(variant, query_vcf_reader))
             else:
-                logger.warning(f"Ignoring varient {varient_to_str(variant)} (truth and query missing in eval vcf)")
+                increment_matrix(decide_missing_truth(truth.data, variant), decide_missing_query(variant, query_vcf_reader))
         elif len(variants) == 2:
             bds = list(map(
                 lambda x: variants[x[0]].genotype(x[1]).data.BD,
@@ -109,7 +114,8 @@ def get_dosage_matrix(eval_vcf: str, truth_vcf: str, query_vcf: str) -> List[Lis
                 (bds[0], bds[3]) == (None, None) and None not in (bds[1], bds[2]) or
                 (bds[1], bds[2]) == (None, None) and None not in (bds[0], bds[3])
                 ):
-                raise Exception(f"Invalid double varient record at {varient_to_str(variants[0])} and {varient_to_str(variants[1])}")
+                #raise Exception(f"Invalid double variant record at {variant_to_str(variants[0])} and {variant_to_str(variants[1])}")
+                logger.debug(f"Invalid double variant record at {variant_to_str(variants[0])} and {variant_to_str(variants[1])}") #nearby SNPs have the same BS as well
 
             truth_dosage = gt_types[0] if gt_types[2] is None else gt_types[2]
             query_dosage = gt_types[1] if gt_types[3] is None else gt_types[3]
@@ -117,7 +123,7 @@ def get_dosage_matrix(eval_vcf: str, truth_vcf: str, query_vcf: str) -> List[Lis
             many_reprs += 1
             increment_matrix(truth_dosage, query_dosage)
         else:
-            raise Exception(f"Many varients with the same postions. First one is at {varient_to_str(variants[0])}")
+            raise Exception(f"Many variants with the same postions. First one is at {variant_to_str(variants[0])}")
 
     print(f"vcf_eval_dosage: {vcf_eval_dosage}, set_truth_zero: {set_truth_zero}, many_reprs: {many_reprs}")
 
@@ -151,7 +157,7 @@ def test_chunk_by():
 def main(eval_vcf_name: str, truth_vcf_name: str, query_vcf_name: str):
     matrix = get_dosage_matrix(eval_vcf_name, truth_vcf_name, query_vcf_name)
 
-    line_lables = ["0", "1", "2", "."]
+    line_lables = ["0", "1", "2", "./."]
     print(" ", *line_lables, sep="\t")
     print(*(["-"] * 5), sep="\t")
     for i, row in enumerate(matrix):
