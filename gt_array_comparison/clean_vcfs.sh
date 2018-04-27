@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euf -o pipefail
+set -o pipefail
 
 set -x
 
@@ -10,8 +10,6 @@ module add hgi/vcftools/0.1.14
 module add hgi/bcftools/1.6-htslib-1.6-htslib-plugins-6f2229e0-irods-git-4.2.2-plugin_kerberos-2.0.0
 module add hgi/parallel/20140922
 
-alias my_parallel="parallel --no-notice"
-
 USAGE=$(cat -<< EOF
 USAGE: $0 --reference/-r <FILE> --sample_list/-s <FILE> [--exome_mask/-e <FILE>] <VCF_FILE>
 EOF
@@ -20,9 +18,10 @@ EOF
 reference=""
 sample_list=""
 exome_mask=""
+input_vcf=""
 
-OPTIONS=r:s:e:
-LONGOPTIONS=reference:,sample_list:,exome_mask:
+OPTIONS=r:s:e:i:
+LONGOPTIONS=reference:,sample_list:,exome_mask:,input_vcf:
 
 PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTIONS --name "$0" -- "$@")
 if [[ $? -ne 0 ]]; then
@@ -44,6 +43,10 @@ while true; do
             exome_mask="$2"
             shift 2
             ;;
+        -i|--input_vcf)
+            input_vcf="$2"
+            shift 2
+            ;;
         -h|--help)
             echo ${USAGE}
             exit 0
@@ -54,43 +57,56 @@ while true; do
             ;;
         *)
             echo "Programming error"
+            echo $1
             exit 3
             ;;
     esac
 done
 
-if [[ $# -ne 1 ]]; then
-    echo "$0: An input VCF is required."
+if [[ -z "$input_vcf" ]]; then
+    echo "$0: The parameter --input_vcf is required."
     exit 4
 fi
-input_vcf=$1
 
 if [[ -z "$reference" ]]; then
-    echo "$0. The parameter --reference needs to be defined."
+    echo "$0. The parameter --reference is required."
     exit 4
 fi
 
-if [[-z "$sample_list"]]; then
-    echo "$0. The parameter --sample_list needs to be defined."
+if [[ -z "$sample_list" ]]; then
+    echo "$0. The parameter --sample_list is required."
     exit 4
 fi
 
-input_file_base=$(basename ${input_file} .vcf.gz)
+
+# # default is ELGH_ROH.gvcf_to_vcf.20180206.hard-filtered.reheaded.vcf.gz
+# input_file=$1
+# # default is /lustre/scratch118/humgen/hgi/users/mercury/2017-2018-variant-caller-eval/dragen/ref-v6/Homo_sapiens.GRCh38_full_analysis_set_plus_decoy_hla.fa
+# fasta_reference=$2
+# # default is ../exon_regions_chr
+# exome_mask=$3
+# # default is ./111_wes_sample_list
+# sample_list=$4
+
+alias my_parallel="parallel --no-notice"
+
+input_file_base=$(basename ${input_vcf} .vcf.gz)
+working_dir=$(dirname ${input_vcf})
 
 # index input vcf
-tabix -p vcf ${input_file}
+tabix -p vcf ${input_vcf}
 
 # subset columns
-bcftools view -Oz -S ${sample_list} ${input_file_base}.vcf.gz > ${input_file_base}.subset.vcf.gz
+bcftools view -Oz -S ${sample_list} ${input_vcf} > ${input_file_base}.subset.vcf.gz
 
 # index subset vcf
 tabix -p vcf ${input_file_base}.subset.vcf.gz
 
 # split vcf by chrom
-my_parallel "tabix -h ${input_file_base}.subset.vcf.gz chr{} | bgzip -c > ${input_file_base}.chr{}.vcf.gz" ::: {1..22}
+parallel "tabix -h ${input_file_base}.subset.vcf.gz chr{} | bgzip -c > ${input_file_base}.chr{}.vcf.gz" ::: {1..22}
 
 # index chrom-level vcfs
-my_parallel "tabix -p vcf ${input_file_base}.chr{}.vcf.gz" ::: {1..22}
+parallel "tabix -p vcf ${input_file_base}.chr{}.vcf.gz" ::: {1..22}
 
 if [[ -z "$exome_mask" ]]; then
     exome_mask_option=" -R ${exome_mask}"
@@ -98,18 +114,29 @@ else
     exome_mask_option=""
 fi
 
-
 # normalize vcf + apply exome mask (-R ../exon_regions_chr flag; should be optional)
-my_parallel "bcftools norm -c s -Oz -f ${reference} -any${exome_mask_option} ${input_file_base}.chr{}.vcf.gz > ${input_file_base}.chr{}.exome.normed.vcf.gz" ::: {1..22}
+parallel "bcftools norm -c s -f ${reference} -m +any ${input_file_base}.chr{}.vcf.gz | bcftools annotate -Oz -x FORMAT/AD > ${input_file_base}.chr{}.normed.noAD.vcf.gz" ::: {1..22}
 
+rm *chr{1..22}.vcf.gz*
 # we should not remove the input file
 #rm ELGH_ROH.gvcf_to_vcf.20180206.hard-filtered.vcf.gz*
 
-# more intermediate file removal
-rm ${input_file_base}.chr*.vcf.gz*
+#ls ./${input_file_base}.chr*.vcf.gz*
 
-# retain only PASS columns
-my_parallel "bcftools view -Oz -f PASS ${input_file_base}.chr{}.exome.normed.vcf.gz > ${input_file_base}.chr{}.exome.normed.only-pass.vcf.gz" ::: {1..22}
+# more intermediate file removal
+#(rm ./${input_file_base}.chr*.vcf.gz* || true)
 
 # index vcf obtained in prev step
-my_parallel "tabix -p vcf ${input_file_base}.chr{}.exome.normed.only-pass.vcf.gz" ::: {1..22}
+parallel "tabix -p vcf ${input_file_base}.chr{}.normed.noAD.vcf.gz" ::: {1..22}
+
+SAMPLES=( $(cat "${sample_list}") )
+
+for sample in ${SAMPLES}; do
+    mkdir "${sample}"
+
+    parallel "bcftools view -Oz -s ${sample} ${input_file_base}.chr{}.normed.noAD.vcf.gz > ./${sample}/${input_file_base}.${sample}.chr{}.clean.vcf.gz" ::: {1..22}
+    
+    parallel "tabix -p vcf ./${sample}/${input_file_base}.${sample}.chr{}.clean.vcf.gz" ::: {1..22}
+    
+    rm ${input_file_base}.chr{}.normed.noAD.vcf.gz
+done
