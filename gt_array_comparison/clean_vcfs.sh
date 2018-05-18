@@ -3,13 +3,13 @@
 set -o pipefail
 
 set -x
-
+'''
 module purge
 module add hgi/tabix/git-1ae158a
 module add hgi/vcftools/0.1.14
 module add hgi/bcftools/1.6-htslib-1.6-htslib-plugins-6f2229e0-irods-git-4.2.2-plugin_kerberos-2.0.0
 module add hgi/parallel/20140922
-
+'''
 USAGE=$(cat -<< EOF
 USAGE: $0 --reference/-r <FILE> --sample_list/-s <FILE> [--exome_mask/-e <FILE>] <VCF_FILE>
 EOF
@@ -106,7 +106,7 @@ tabix -p vcf ${input_file_base}.subset.vcf.gz
 parallel "tabix -h ${input_file_base}.subset.vcf.gz chr{} | bgzip -c > ${input_file_base}.chr{}.vcf.gz" ::: {1..22}
 
 # index chrom-level vcfs
-parallel "tabix -p vcf ${input_file_base}.chr{}.vcf.gz" ::: {1..22}
+parallel "bcftools index -t ${input_file_base}.chr{}.vcf.gz" ::: {1..22}
 
 if [[ -z "$exome_mask" ]]; then
     exome_mask_option=" -R ${exome_mask}"
@@ -127,16 +127,5 @@ rm *chr{1..22}.vcf.gz*
 #(rm ./${input_file_base}.chr*.vcf.gz* || true)
 
 # index vcf obtained in prev step
-parallel "tabix -p vcf ${input_file_base}.chr{}.normed.noAD.vcf.gz" ::: {1..22}
+parallel "bcftools index -t ${input_file_base}.chr{}.normed.noAD.vcf.gz" ::: {1..22}
 
-SAMPLES=( $(cat "${sample_list}") )
-
-for sample in ${SAMPLES}; do
-    mkdir "${sample}"
-
-    parallel "bcftools view -Oz -s ${sample} ${input_file_base}.chr{}.normed.noAD.vcf.gz > ./${sample}/${input_file_base}.${sample}.chr{}.clean.vcf.gz" ::: {1..22}
-    
-    parallel "tabix -p vcf ./${sample}/${input_file_base}.${sample}.chr{}.clean.vcf.gz" ::: {1..22}
-    
-    rm ${input_file_base}.chr{}.normed.noAD.vcf.gz
-done
