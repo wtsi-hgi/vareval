@@ -1,0 +1,9 @@
+# Data files
+*.bed
+*.vcf
+*.tmp
+*.vcf.gz
+*.tbi
+*.csi
+# executable
+roh_comparison 

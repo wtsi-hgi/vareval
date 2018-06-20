@@ -78,7 +78,7 @@ func main() {
 			return
 		}
 		os.Remove(intersect)
-		/// filter if appropriate
+		/// filter if appropriate afterwards
 
 	}
 
@@ -99,7 +99,7 @@ func SamplesFromVCF(vcf string) (samples []string, err error) {
 }
 
 func singleSampleVCF(sample string, vcf string) (file string, err error) {
-	vcfBase := filepath.Base(vcf)
+	vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
 	file = vcfBase + "_" + sample + ".vcf"
 
 	_, err = exec.Command("bcftools", "view", "-s", sample, "-o", file, vcf).Output()
@@ -133,7 +133,7 @@ func indexVCF(vcf string) (file string, err error) {
 }
 
 func intersectVCF(vcf string, bed string) (file string, err error) {
-	file = "in_roh_" + vcf
+	file = "in_roh_" + strings.TrimSuffix(vcf, ".gz")
 
 	_, err = exec.Command("bcftools", "view", "-R", bed, "-o", file, vcf).Output()
 

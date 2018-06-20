@@ -48,5 +48,5 @@ outputs:
 
 
 doc: | 
-    produce vcfs of het calls in known ROH regions as part of assessment
+    produce vcfs of het calls in known ROH regions as part of vareval assessment
 

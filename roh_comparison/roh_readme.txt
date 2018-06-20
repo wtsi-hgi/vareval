@@ -26,7 +26,7 @@ bash but basically I'm using it as a script to link bcftools calls
 and it could easily be changed to python or bash
 
 It has run OK in Arvados with all inputs in keep and a yaml file like this:
-
+--------------------------------------------------------------------------------
 ROH_chr:
   class: File
   location:  keep:<content address>/allROH.txt
@@ -60,7 +60,7 @@ vcf_file:
 sample_mapping:
   class: File
   location: keep:<content address>/sample_id_mappings_egan_to_elgh
-  
+----------------------------------------------------------------------------- 
   and command line (something like)
   
    arvados-cwl-runner --api=containers --no-log-timestamps --disable-reuse 
