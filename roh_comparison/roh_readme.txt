@@ -1,6 +1,6 @@
 The aim is to find heterozygous calls that are in known homozygous regions.
 
-This is part of evaluating different variant callers, for the ELGH dataset
+This is part of evaluating different variant callers, for a dataset
 which has the known ROH data.
 
 There are two complications:
@@ -37,29 +37,29 @@ executable:
 
 vcf_file:
   - class: File
-    location: keep:<content address>/ELGH-V2plus.gatk_gvcf_to_vcf.20180516.hard-filtered.vcf.gz
+    location: keep:<content address>/<multisample vcf 1>
     secondaryFiles:
       - class: File
-        location:  keep:<content address>/ELGH-V2plus.gatk_gvcf_to_vcf.20180516.hard-filtered.vcf.gz.tbi
+        location:  keep:<content address>/<multisample vcf 1>.tbi
   - class: File
-    location: keep:<content address>/ELGH-V2plus.gatk_gvcf_to_vcf.20180516.vcf.gz
+    location: keep:<content address>/<multisample vcf 2>
     secondaryFiles:
       - class: File
-        location:  keep:<content address>/ELGH-V2plus.gatk_gvcf_to_vcf.20180516.vcf.gz.tbi
+        location:  keep:<content address>/<multisample vcf 2>.tbi
   - class: File
-    location: keep:<content address>/ELGH-V2plus.gvcf_to_vcf.20180516.hard-filtered.vcf.gz
+    location: keep:<content address>/<multisample vcf 3>
     secondaryFiles:
       - class: File
-        location:  keep:<content address>/ELGH-V2plus.gvcf_to_vcf.20180516.hard-filtered.vcf.gz.tbi
+        location:  keep:<content address>/<multisample vcf 3>.tbi
   - class: File
-    location: keep:<content address>/ELGH-V2plus.gvcf_to_vcf.20180516.vcf.gz
+    location: keep:<content address>/<multisample vcf 4>
     secondaryFiles:
       - class: File
-        location:  keep:<content address>/ELGH-V2plus.gvcf_to_vcf.20180516.vcf.gz.tbi
+        location:  keep:<content address><multisample vcf 4>.tbi
 
 sample_mapping:
   class: File
-  location: keep:<content address>/sample_id_mappings_egan_to_elgh
+  location: keep:<content address>/<sample id mappings file>
 ----------------------------------------------------------------------------- 
   and command line (something like)
   
