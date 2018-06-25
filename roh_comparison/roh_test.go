@@ -21,3 +21,11 @@ func TestSampleBEDsFromROH(t *testing.T) {
 	}
 
 }
+
+func TestWriteStatsFile(t *testing.T) {
+	m := make(map[string]int)
+	m["a"] = 1
+	m["b"] = 2
+	m["c"] = 3
+	writeStatsFile("x.y", []string{"a", "b", "c"}, m, m, m, m)
+}

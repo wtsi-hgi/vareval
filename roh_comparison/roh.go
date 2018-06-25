@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 )
 
 func main() {
-
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// set up parameters
 	mapFile := flag.String("map", "", "mapping between sample names")
 	//a mapping file of sample names (different in the vcf and the roh files)
@@ -22,66 +23,105 @@ func main() {
 	//a multisample vcf
 	vcfFile := flag.String("vcf", "", "a multisample vcf to analyse")
 	flag.Parse()
+
 	// set up the mapping between sample names (ROH to vcf)
 	m, err := mapSampleNames(*mapFile)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 	// Find the samples from the multisample vcf
+
 	s, err := SamplesFromVCF(*vcfFile)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 	// make the separate sample bed files from the ROH input file
 	err = sampleBEDsFromROH(*rohFile, m)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 
+	err = handleSamples(*vcfFile, s)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
+// handleSamples works out eight counts for each sample and saves them to a stats file
+// format sampleid, allcalls, all het calls,all filtered calls, all filtered het calls,
+//  all calls in ROH, all het calls in ROH, all filtered calls in ROH and all filtered het calls in ROH
+// if no filter was applied the filtered set will match the unfiltered set.
+// the final vcfs of het calls in ROH regions are also saved
+func handleSamples(vcf string, s []string) (err error) {
+	// base filename
+	vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
+	// open the stats file
+	f, err := os.Create("stats_" + vcfBase + ".csv")
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	//	f.WriteString("sample,allVariants,hetVariants,allFilteredVariants, hetFilteredVariants, allROHVariants,hetROHVariants, allFilteredROHVariants, hetFilteredROHVariants\n")
+	f.WriteString("sample,allROHVariants,hetROHVariants,allFilteredROHVariants,hetFilteredROHVariants\n")
+
 	// deal with each sample
 	for i := range s {
+
 		// get the single sample vcf
-		ssVCF, err := singleSampleVCF(s[i], *vcfFile)
+		ssVCF := vcfBase + "_" + s[i] + ".vcf"
+		err = singleSampleVCF(s[i], vcf, ssVCF)
 		if err != nil {
-			fmt.Println(err)
+
 			return
 		}
+		// count all calls and het calls
+		/*
+			all, het, allF, hetF, err := countVariants(ssVCF)
+			if err != nil {
+				return err
+			}
+			f.WriteString(fmt.Sprintf("%s, %s,%s,%s,%s", s[i], all, het, allF, hetF))
+		*/
 		// compress and index
 		comSSVCF, err := compressVCF(ssVCF)
 		if err != nil {
-			fmt.Println(err)
-			return
+
+			return err
 		}
 		os.Remove(ssVCF)
+
 		_, err = indexVCF(comSSVCF)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
 
 		// intersect with roh regions
 		intersect, err := intersectVCF(comSSVCF, s[i]+".bed")
 		if err != nil {
-			fmt.Println(err)
-			return
+
+			return err
 		}
 		os.Remove(comSSVCF)
+		allR, hetR, allRF, hetRF, err := countVariants(intersect)
+		if err != nil {
+			return err
+		}
+		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s\n", s[i], allR, hetR, allRF, hetRF))
 
-		// take het calls
-		_, err = hetCalls(intersect)
+		// output actual het calls while testing
+		err = hetCalls(intersect, "het_"+intersect)
 
 		if err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
 		os.Remove(intersect)
-		/// filter if appropriate afterwards
 
 	}
-
+	return
 }
 
 // SamplesFromVCF will error if can't find bcftools .. will be run in docker containing it
@@ -98,11 +138,11 @@ func SamplesFromVCF(vcf string) (samples []string, err error) {
 	return
 }
 
-func singleSampleVCF(sample string, vcf string) (file string, err error) {
-	vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
-	file = vcfBase + "_" + sample + ".vcf"
+func singleSampleVCF(sample string, vcf string, outputvcf string) (err error) {
+	//vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
+	//file = vcfBase + "_" + sample + ".vcf"
 
-	_, err = exec.Command("bcftools", "view", "-s", sample, "-o", file, vcf).Output()
+	_, err = exec.Command("bcftools", "view", "-s", sample, "-c1", "-o", outputvcf, vcf).Output()
 	if err != nil {
 		err = fmt.Errorf("Couldn't get calls for sample %s from vcf %s, is bcftools installed? %s", sample, vcf, err.Error())
 		return
@@ -145,10 +185,10 @@ func intersectVCF(vcf string, bed string) (file string, err error) {
 	return
 }
 
-func hetCalls(vcf string) (file string, err error) {
+func hetCalls(vcf string, outvcf string) (err error) {
 	//get het calls with filters applied for a single sample
-	file = "het_" + vcf
-	_, err = exec.Command("bcftools", "view", "-g", "het", "-o", file, vcf).Output()
+
+	_, err = exec.Command("bcftools", "view", "-g", "het", "-o", outvcf, vcf).Output()
 	if err != nil {
 		err = fmt.Errorf("Couldn't get het calls for file %s, is bcftools installed? %s", vcf, err.Error())
 		return
@@ -175,6 +215,81 @@ func mapSampleNames(mapfile string) (m map[string]string, err error) {
 		}
 	}
 	return
+}
+
+// count all variants, het variants, all filtered variants and het filtered variants from
+// a vcf (there may be no filter so use  -f .,PASS)
+// apply the filters or intersect, take off the header, count the lines
+func countVariants(vcf string) (all string, het string, allFiltered string, hetsFiltered string, err error) {
+	headerlessVCF := "all_headless_" + vcf
+	// all, unfiltered
+	_, err = exec.Command("bcftools", "view", "-H", "-o", headerlessVCF, vcf).Output()
+	if err != nil {
+		return
+	}
+	out, err := exec.Command("wc", "-l", headerlessVCF).Output()
+	if err != nil {
+		return
+	}
+	all = strings.Split(string(out), " ")[0]
+
+	// hets, unfiltered
+	allHets := "hets" + vcf
+	headerlessAllHets := "hets_headless" + allHets
+	err = hetCalls(vcf, allHets)
+	if err != nil {
+
+		return
+	}
+	_, err = exec.Command("bcftools", "view", "-H", "-o", headerlessAllHets, allHets).Output()
+	if err != nil {
+		return
+	}
+
+	out, err = exec.Command("wc", "-l", headerlessAllHets).Output()
+	if err != nil {
+		return
+	}
+
+	het = strings.Split(string(out), " ")[0]
+
+	// all, filtered
+	_, err = exec.Command("bcftools", "view", "-H", "-f", ".,PASS", "-o", headerlessVCF, vcf).Output()
+	if err != nil {
+		return
+	}
+	out, err = exec.Command("wc", "-l", headerlessVCF).Output()
+	if err != nil {
+		return
+	}
+
+	allFiltered = strings.Split(string(out), " ")[0]
+
+	// hets filtered
+	_, err = exec.Command("bcftools", "view", "-H", "-f", ".,PASS", "-o", "filtered"+allHets, allHets).Output()
+	if err != nil {
+		return
+	}
+
+	out, err = exec.Command("wc", "-l", "filtered"+allHets).Output()
+	if err != nil {
+		return
+	}
+
+	hetsFiltered = strings.Split(string(out), " ")[0]
+
+	os.Remove(headerlessVCF)
+	os.Remove(allHets)
+	os.Remove(headerlessAllHets)
+	os.Remove("filtered" + allHets)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	return
+
 }
 
 func sampleBEDsFromROH(roh string, m map[string]string) (err error) {
@@ -204,6 +319,7 @@ func sampleBEDsFromROH(roh string, m map[string]string) (err error) {
 		}
 		chromosome := line[2]
 		if !strings.HasPrefix(chromosome, "chr") {
+			//fmt.Println("Converted chromosome names in ROH file")
 			chromosome = "chr" + chromosome
 		}
 		sample1 := line[1]

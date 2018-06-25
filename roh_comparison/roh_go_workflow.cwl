@@ -38,13 +38,16 @@ steps:
       ROH_chr: ROH_chr
       vcf_file: vcf_file 
       sample_mapping: sample_mapping       
-    out: [output1]
+    out: [output1, output2]
 
 
 outputs:
   - id: calls
     type: File[]
     outputSource: [ROH_calc/output1]
+  - id: stats
+    type: file
+    outputSource: [ROH_calc/output2]
 
 
 doc: | 

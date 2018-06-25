@@ -45,9 +45,13 @@ inputs:
 
 outputs:
   output1:
-    type: File
+    type: File[]
     outputBinding:
       glob: het*
+  output2:   
+    type: File
+    outputBinding:
+    glob: stats* 
 
 
 doc: | 
