@@ -51,7 +51,7 @@ outputs:
   output2:   
     type: File
     outputBinding:
-    glob: stats* 
+      glob: stats* 
 
 
 doc: | 

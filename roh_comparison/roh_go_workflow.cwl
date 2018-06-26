@@ -1,21 +1,22 @@
-$$namespaces:
-  arv: "http://arvados.org/cwl#"
-  cwltool: "http://commonwl.org/cwltool#"
+#$$namespaces:
+#  arv: "http://arvados.org/cwl#"
+#  cwltool: "http://commonwl.org/cwltool#"
 
 cwlVersion: v1.0
 class: Workflow
 
 requirements:
   - class: ScatterFeatureRequirement
+  - class: MultipleInputFeatureRequirement
 
 hints:
   ResourceRequirement:
     ramMin: 4000
     coresMin: 4
     tmpdirMin: 1000
-  arv:RuntimeConstraints:
-    keep_cache: 1024
-    outputDirType: keep_output_dir
+#  arv:RuntimeConstraints:
+##    keep_cache: 1024
+#    outputDirType: keep_output_dir
 
 inputs:
   - id: executable
@@ -43,10 +44,14 @@ steps:
 
 outputs:
   - id: calls
-    type: File[]
+    type:
+      type: array
+      items:
+        - type: array
+          items: File
     outputSource: [ROH_calc/output1]
   - id: stats
-    type: file
+    type: File[]
     outputSource: [ROH_calc/output2]
 
 
