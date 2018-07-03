@@ -53,7 +53,7 @@ func main() {
 func mendelianPlugin(vcf string, trios string) (err error) {
 	// call the bcf plugin
 	// bcftools +mendelian <vcf>  -T <trios> -c > <output>
-	output, err := exec.Command("bcftools", "+mendelian", vcf, "-T", trios).Output()
+	output, err := exec.Command("bcftools", "+mendelian", vcf, "-T", trios, "-c").Output()
 	if err != nil {
 		log.Println(err)
 		return
@@ -113,7 +113,7 @@ func mapSampleNames(mapfile string, samples map[string]bool) (m map[string]strin
 }
 
 // make a trios file (father mother child) for the sample ids used in the vcf
-// with the trios data from the input trios file
+// with the trios data from the input trios file (another id then the three required )
 func makeTriosFile(inFile string, outfile string, m map[string]string, samples map[string]bool) (err error) {
 	fOut, err := os.Create(outfile)
 	if err != nil {
@@ -133,15 +133,15 @@ func makeTriosFile(inFile string, outfile string, m map[string]string, samples m
 	for scanner.Scan() {
 		next := strings.TrimSpace(scanner.Text())
 		next2 := strings.Fields(next)
-		if len(next2) != 3 {
-			err = fmt.Errorf("Unexpected format for trios file %s, should have 3 fields", inFile)
+		if len(next2) != 4 {
+			err = fmt.Errorf("Unexpected format for trios file %s, should have 4 fields", inFile)
 			return
 		}
 
-		nextLine := fmt.Sprintf("%s\t%s\t%s\n", m[next2[0]], m[next2[1]], m[next2[2]])
-		_, ok1 := samples[m[next2[0]]]
-		_, ok2 := samples[m[next2[1]]]
-		_, ok3 := samples[m[next2[2]]]
+		nextLine := fmt.Sprintf("%s\t%s\t%s\n", m[next2[1]], m[next2[2]], m[next2[3]])
+		_, ok1 := samples[m[next2[1]]]
+		_, ok2 := samples[m[next2[2]]]
+		_, ok3 := samples[m[next2[3]]]
 		if ok1 && ok2 && ok3 { // all of trio exists in our dataset
 			fOut.WriteString(nextLine)
 		}
