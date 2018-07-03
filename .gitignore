@@ -5,5 +5,7 @@
 *.vcf.gz
 *.tbi
 *.csi
-# executable
-roh_comparison 
+*.txt
+# executables
+roh_comparison
+mendelian 
