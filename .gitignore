@@ -6,6 +6,7 @@
 *.tbi
 *.csi
 *.txt
+*.csv
 # executables
-roh_comparison
-mendelian_errors 
+roh_comparison/roh_comparison  
+mendelian_errors/mendelian_errors 
