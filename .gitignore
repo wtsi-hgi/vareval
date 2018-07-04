@@ -5,8 +5,8 @@
 *.vcf.gz
 *.tbi
 *.csi
-#*.txt
-*.csv
+mendelian_errors/*.txt
+roh_comparison/*.csv
 # executables
 roh_comparison/roh_comparison  
 mendelian_errors/mendelian_errors 
