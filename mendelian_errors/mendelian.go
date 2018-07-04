@@ -55,10 +55,19 @@ func mendelianPlugin(vcf string, trios string) (err error) {
 	// bcftools +mendelian <vcf>  -T <trios> -c > <output>
 	output, err := exec.Command("bcftools", "+mendelian", vcf, "-T", trios, "-c").Output()
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("Couldn't run mendelian plugin : %s", err.Error())
 		return
 	}
-	fmt.Println(string(output))
+	//fmt.Println(string(output))
+	f, err := os.Open("mendelian_output")
+	if err != nil {
+		err = fmt.Errorf("Couldn't open the output file : %s", err.Error())
+		return
+	}
+	defer f.Close()
+
+	f.WriteString(string(output))
+
 	return
 }
 
