@@ -1,0 +1,63 @@
+Output is a stats csv file per input vcf with counts for each sample of
+
+1) all calls in ROH regions
+2) all het calls in ROH regions
+3) all filtered calls in ROH regions
+4) all filtered het calls in ROH regions
+
+The filtering was done during processing using Dragen defaults, 
+and unfiltered vcfs should have the first two counts and the second two counts the same.
+
+The processing steps were, for each input multisample vcf:
+
+1) match up sample names and chromosome names
+2) make individual bed files per sample from the allROHs text file
+3) extract all samples from the vcf using
+    bcftools query -l <vcf>
+3) make the multisample vcf into single sample vcfs using
+    bcftools view -s sample -c1
+4) for each sample, 
+        intersect the bed file with the  single sample vcf (bcftools view -R)
+        count the non header lines
+        get het calls using bcftools -g het
+        count the non header lines
+        apply filters using bcftools view -f .,PASS
+        count the non header lines
+        apply filters to het calls the same way
+        count the non header lines
+        output the line of stats and the final het calls in ROH vcf (for checking)
+        
+       
+ using the cwl in the vareval github project this runs in a docker container with 
+ bcftools and scatters over input vcf.
+
+ command line for cwltool:
+ sudo cwltool roh_go_workflow.cwl /home/sjc/vareval/roh/roh_go_workflow.yaml
+
+ yaml file structure:
+
+ROH_chr:
+  class: File
+  location:  <roh file location>
+   
+executable:
+  class: File
+  location: <executable location>
+
+vcf_file:
+  - class: File
+    location: <vcf1 location>
+    secondaryFiles:
+      - class: File
+        location:  <vcf1 index location>
+  - class: File
+    location: <vcf2 location>
+    secondaryFiles:
+      - class: File
+        location:  <vcf2 index location>
+  
+sample_mapping:
+  class: File
+  location: <mapping file location>
+ 
+          
