@@ -1,3 +1,15 @@
+The aim is to find heterozygous calls that are in known homozygous regions.
+
+This is part of evaluating different variant callers, for a dataset
+which has known ROH data.
+
+Inputs are 
+
+1) an array of multisample vcfs that we have ROH regions for
+2) the sample id mapping files
+3) the ROH regions per chromosome and sample (one file)
+
+
 Output is a stats csv file per input vcf with counts for each sample of
 
 1) all calls in ROH regions
@@ -5,7 +17,10 @@ Output is a stats csv file per input vcf with counts for each sample of
 3) all filtered calls in ROH regions
 4) all filtered het calls in ROH regions
 
-The filtering was done during processing using Dragen defaults, 
+Plus vcfs of any het calls in a known ROH region, one file per input vcf and sample
+named: het_in_roh_<inputvcf>_<sampleid>.vcf.gz
+
+The filtering was done during processing (for Dragen, using Dragen defaults), 
 and unfiltered vcfs should have the first two counts and the second two counts the same.
 
 The processing steps were, for each input multisample vcf:
@@ -28,36 +43,63 @@ The processing steps were, for each input multisample vcf:
         output the line of stats and the final het calls in ROH vcf (for checking)
         
        
- using the cwl in the vareval github project this runs in a docker container with 
- bcftools and scatters over input vcf.
 
- command line for cwltool:
- sudo cwltool roh_go_workflow.cwl /home/sjc/vareval/roh/roh_go_workflow.yaml
+There are two complications:
 
- yaml file structure:
+1) the sample names differ in the multisample vcfs 
+and ROH data, so one input is a mapping file between the two sample names. 
 
+2) The chromosome names are 1 in the ROH data and chr1 in the vcfs. 
+
+
+The program is in Go because I wanted to experiment with loading an
+executable in cwl and also becasue it's nicer for error handling than 
+bash but basically I'm using it as a script to link bcftools calls 
+and it could easily be changed to python or bash
+
+It should run in Arvados with all inputs in keep and a yaml file like this:
+--------------------------------------------------------------------------------
 ROH_chr:
   class: File
-  location:  <roh file location>
+  location:  keep:<content address>/allROH.txt
    
 executable:
   class: File
-  location: <executable location>
+  location: keep:<content address>/roh_comparison
 
 vcf_file:
   - class: File
-    location: <vcf1 location>
+    location: keep:<content address>/<multisample vcf 1>
     secondaryFiles:
       - class: File
-        location:  <vcf1 index location>
+        location:  keep:<content address>/<multisample vcf 1>.tbi
   - class: File
-    location: <vcf2 location>
+    location: keep:<content address>/<multisample vcf 2>
     secondaryFiles:
       - class: File
-        location:  <vcf2 index location>
-  
+        location:  keep:<content address>/<multisample vcf 2>.tbi
+  - class: File
+    location: keep:<content address>/<multisample vcf 3>
+    secondaryFiles:
+      - class: File
+        location:  keep:<content address>/<multisample vcf 3>.tbi
+  - class: File
+    location: keep:<content address>/<multisample vcf 4>
+    secondaryFiles:
+      - class: File
+        location:  keep:<content address><multisample vcf 4>.tbi
+
 sample_mapping:
   class: File
-  location: <mapping file location>
- 
-          
+  location: keep:<content address>/<sample id mappings file>
+----------------------------------------------------------------------------- 
+  and command line (something like)
+  
+   arvados-cwl-runner --api=containers --no-log-timestamps --disable-reuse 
+   --on-error=continue --eval-timeout=20 --output-name=sarah --output-tags=tag1
+    roh_go_workflow.cwl roh_go_workflow.yaml 
+
+----------------------------------------------------------------
+ command line for cwltool:
+ sudo cwltool roh_go_workflow.cwl /home/sjc/vareval/roh/roh_go_workflow.yaml
+

@@ -5,7 +5,7 @@
 *.vcf.gz
 *.tbi
 *.csi
-*.txt
+#*.txt
 *.csv
 # executables
 roh_comparison/roh_comparison  
