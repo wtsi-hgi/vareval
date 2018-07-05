@@ -10,3 +10,4 @@ roh_comparison/*.csv
 # executables
 roh_comparison/roh_comparison  
 mendelian_errors/mendelian_errors 
+*_log
