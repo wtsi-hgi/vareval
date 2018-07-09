@@ -51,25 +51,25 @@ func main() {
 	}
 
 	// set up the mapping between sample names (ROH to vcf)
-	var m map[string]string
-	if mapSamples {
-		m, _, err = mapSampleNames(*mapFile)
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
-		log.Println("Set up sample map")
-
+	var m1, m2 map[string]string
+	//if mapSamples { needed anyway for filtering
+	m1, m2, err = mapSampleNames(*mapFile)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
 	}
+	log.Println("Set up sample maps")
+
+	//}
 	// Find the samples from the multisample vcf
-	s, err := SamplesFromVCF(*vcfFile, m)
+	s, err := SamplesFromVCF(*vcfFile, m1, m2)
 	if err != nil {
 		log.Println(err)
 		os.Exit(2)
 	}
 	log.Println(fmt.Sprintf("Got %d samples from vcf", len(s)))
 	// make the separate sample bed files from the ROH input file
-	err = sampleBEDsFromROH(*rohFile, mapSamples, mapChr, m)
+	err = sampleBEDsFromROH(*rohFile, mapSamples, mapChr, m1)
 	if err != nil {
 		log.Println(err)
 		os.Exit(3)
@@ -117,14 +117,14 @@ func handleSamples(vcf string, s []string, keep bool) (err error) {
 
 			return
 		}
-		// count all calls and het calls
-
-		all, het, allF, hetF, err := countVariants(ssVCF)
-		if err != nil {
-			return err
-		}
-		f.WriteString(fmt.Sprintf("%s, %s,%s,%s,%s", s[i], all, het, allF, hetF))
-
+		// count all calls and het calls slow if used
+		/*
+			all, het, allF, hetF, err := countVariants(ssVCF)
+			if err != nil {
+				return err
+			}
+			f.WriteString(fmt.Sprintf("%s, %s,%s,%s,%s", s[i], all, het, allF, hetF))
+		*/
 		// compress and index
 		comSSVCF, err := compressVCF(ssVCF)
 		if err != nil {
@@ -153,8 +153,9 @@ func handleSamples(vcf string, s []string, keep bool) (err error) {
 		if err != nil {
 			return err
 		}
-		//f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s\n", s[i], allR, hetR, allRF, hetRF))
-		f.WriteString(fmt.Sprintf(",%s,%s,%s,%s\n", allR, hetR, allRF, hetRF))
+		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s\n", s[i], allR, hetR, allRF, hetRF))
+		// replace by following line if also finding all calls (ie not in ROH regions)
+		//f.WriteString(fmt.Sprintf(",%s,%s,%s,%s\n", allR, hetR, allRF, hetRF))
 
 		// output actual het calls while testing
 		err = hetCalls(intersect, "het_"+intersect)
@@ -170,17 +171,22 @@ func handleSamples(vcf string, s []string, keep bool) (err error) {
 
 // SamplesFromVCF will error if can't find bcftools .. will be run in docker containing it
 // only use samples we have in the mapping file but report others
-func SamplesFromVCF(vcf string, m map[string]string) (samples []string, err error) {
+func SamplesFromVCF(vcf string, m1 map[string]string, m2 map[string]string) (samples []string, err error) {
 	s, err := exec.Command("bcftools", "query", "-l", vcf).Output()
 	if err != nil {
 		err = fmt.Errorf("Couldn't get samples from vcf, is bcftools installed? %s", err.Error())
 		return
 	}
 	s2 := strings.Fields(string(s))
+	// limit to samples we include in the map file
+	// but could be either name
 	for i := range s2 {
-		//if _, ok := m[s2[i]]; ok { /// exists
-		samples = append(samples, s2[i])
-		//}
+		if _, ok := m1[s2[i]]; ok { /// exists in forward map
+			samples = append(samples, s2[i])
+		} else if _, ok := m2[s2[i]]; ok { /// exists in freverse map
+			samples = append(samples, s2[i])
+		}
+
 	}
 	return
 }
@@ -192,7 +198,7 @@ func singleSampleVCF(sample string, vcf string, outputvcf string) (err error) {
 	_, err = exec.Command("bcftools", "view", "-s", sample, "-c1", "-o", outputvcf, vcf).Output()
 	if err != nil {
 		err = fmt.Errorf("Couldn't get calls for sample %s from vcf %s, is bcftools installed? %s", sample, vcf, err.Error())
-		return
+
 	}
 	return
 }
@@ -608,4 +614,17 @@ func overlap(a map[string]bool, b map[string]bool) (both, aOnly, bOnly int) {
 		}
 	}
 	return
+}
+
+// shoudl probably change both to interface .. to generalise
+// return the subset of a whose keys are in b
+func subset(a map[string]bool, b map[string]string) (c map[string]bool) {
+	c = make(map[string]bool)
+	for k := range a {
+		if _, ok := b[k]; ok {
+			c[k] = true
+		}
+	}
+	return
+
 }

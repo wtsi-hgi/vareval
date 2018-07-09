@@ -36,7 +36,7 @@ func testSampleBEDsFromROH(t *testing.T) {
 		t.Errorf("%s", err.Error())
 	}
 
-	err = sampleBEDsFromROH(rohfile, m)
+	err = sampleBEDsFromROH(rohfile, true, true, m)
 	if err != nil {
 		t.Errorf("%s", err.Error())
 	}
