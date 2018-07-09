@@ -24,16 +24,16 @@ func main() {
 	vcfFile := flag.String("vcf", "", "a multisample vcf to analyse")
 	keepHetVCFs := flag.Bool("keep", false, "keep the het call vcfs (as well as stats)")
 	flag.Parse()
-	// logging
-	f, err := os.Create(filepath.Base(*vcfFile) + "_log")
+	// set up logging
+	f, err := os.Create("log_" + strings.TrimSuffix(filepath.Base(*vcfFile), ".vcf.gz") + ".txt")
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	defer f.Close()
-
 	log.SetOutput(f)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
+	// check data ... do sample names and chromosome names match in vcf and roh files
 	mapSamples, mapChr, err := dataChecks(*vcfFile, *rohFile, *mapFile)
 	if err != nil {
 		log.Println(err)
@@ -61,7 +61,8 @@ func main() {
 	log.Println("Set up sample maps")
 
 	//}
-	// Find the samples from the multisample vcf
+	// Find the samples from the multisample vcf which
+	// are also in the map file
 	s, err := SamplesFromVCF(*vcfFile, m1, m2)
 	if err != nil {
 		log.Println(err)
@@ -69,13 +70,13 @@ func main() {
 	}
 	log.Println(fmt.Sprintf("Got %d samples from vcf", len(s)))
 	// make the separate sample bed files from the ROH input file
-	err = sampleBEDsFromROH(*rohFile, mapSamples, mapChr, m1)
+	err = sampleBEDsFromROH(*rohFile, mapSamples, mapChr, m1, m2)
 	if err != nil {
 		log.Println(err)
 		os.Exit(3)
 	}
 	log.Println("Sample bed files created")
-	err = handleSamples(*vcfFile, s, *keepHetVCFs)
+	err = handleSamples(*vcfFile, s, m1, m2, *keepHetVCFs)
 	if err != nil {
 		log.Println(err)
 		os.Exit(4)
@@ -89,7 +90,7 @@ func main() {
 //  all calls in ROH, all het calls in ROH, all filtered calls in ROH and all filtered het calls in ROH
 // if no filter was applied the filtered set will match the unfiltered set.
 // the final vcfs of het calls in ROH regions are also saved
-func handleSamples(vcf string, s []string, keep bool) (err error) {
+func handleSamples(vcf string, s []string, m1, m2 map[string]string, keep bool) (err error) {
 	// base filename
 	vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
 	// open the stats file
@@ -153,7 +154,16 @@ func handleSamples(vcf string, s []string, keep bool) (err error) {
 		if err != nil {
 			return err
 		}
-		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s\n", s[i], allR, hetR, allRF, hetRF))
+		// both sample names
+		s1 := s[i]
+		s2 := s[i]
+		if v, ok := m1[s[i]]; ok {
+			s1 = v
+		}
+		if v, ok := m2[s[i]]; ok {
+			s2 = v
+		}
+		f.WriteString(fmt.Sprintf("%s,%s, %s,%s,%s,%s\n", s1, s2, allR, hetR, allRF, hetRF))
 		// replace by following line if also finding all calls (ie not in ROH regions)
 		//f.WriteString(fmt.Sprintf(",%s,%s,%s,%s\n", allR, hetR, allRF, hetRF))
 
@@ -347,7 +357,7 @@ func countVariants(vcf string) (all string, het string, allFiltered string, hets
 
 }
 
-func sampleBEDsFromROH(roh string, mapSamples, renameChromosomes bool, m map[string]string) (err error) {
+func sampleBEDsFromROH(roh string, renameSamples, renameChromosomes bool, m1 map[string]string, m2 map[string]string) (err error) {
 	// the ROH has format RG, sample, chromosome, start, end, length, numberofMarkers, Quality
 	// the sample does not match the sample in the vcf, the mapping file is needed.
 	// the chromosome may not be the same as in the vcf, can be chr1 or 1 etc
@@ -379,8 +389,8 @@ func sampleBEDsFromROH(roh string, mapSamples, renameChromosomes bool, m map[str
 		}
 		sample1 := line[1]
 		sample := ""
-		if renameChromosomes {
-			if val, ok := m[sample1]; ok {
+		if renameSamples {
+			if val, ok := m1[sample1]; ok {
 				sample = val
 			} else {
 				sample = "unmapped_" + sample1
@@ -390,8 +400,16 @@ func sampleBEDsFromROH(roh string, mapSamples, renameChromosomes bool, m map[str
 			if strings.TrimSpace(sample) == "" {
 				sample = "blank_" + sample1
 			}
-		} else {
-			sample = sample1
+		} else { // no mapping but must be in the map file
+			if _, ok := m1[sample1]; ok {
+				sample = sample1
+			} else if _, ok := m2[sample1]; ok {
+				sample = sample1
+				//fmt.Println(fmt.Sprintf("sample in regions not in vcf %s (OK)", sample1))
+			} else {
+				continue // don't need this one
+			}
+			//sample = sample1
 		}
 		start := line[3]
 		end := line[4]

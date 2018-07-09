@@ -52,6 +52,10 @@ outputs:
     type: File
     outputBinding:
       glob: stats* 
+  output3:   
+    type: File
+    outputBinding:
+      glob: log*     
 
 
 doc: | 
