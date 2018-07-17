@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -22,8 +24,9 @@ func main() {
 	rohFile := flag.String("roh", "", "file of regions of homozygosity per sample")
 	//a multisample vcf
 	vcfFile := flag.String("vcf", "", "a multisample vcf to analyse")
-	keepHetVCFs := flag.Bool("keep", false, "keep the het call vcfs (as well as stats)")
+	keepHetVCFs := flag.Bool("keep", true, "keep the het call vcfs (as well as stats)")
 	flag.Parse()
+
 	// set up logging
 	f, err := os.Create("log_" + strings.TrimSuffix(filepath.Base(*vcfFile), ".vcf.gz") + ".txt")
 	if err != nil {
@@ -32,12 +35,13 @@ func main() {
 	defer f.Close()
 	log.SetOutput(f)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println(fmt.Sprintf("Starting with file %s, mapping file %s and ROH file %s", *vcfFile, *mapFile, *rohFile))
 
 	// check data ... do sample names and chromosome names match in vcf and roh files
 	mapSamples, mapChr, err := dataChecks(*vcfFile, *rohFile, *mapFile)
 	if err != nil {
 		log.Println(err)
-		os.Exit(5)
+		os.Exit(1)
 	}
 	if mapSamples {
 		log.Println("samples in ROH file and vcf do not match, mapping file will be used")
@@ -56,7 +60,7 @@ func main() {
 	m1, m2, err = mapSampleNames(*mapFile)
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 	log.Println("Set up sample maps")
 
@@ -66,20 +70,41 @@ func main() {
 	s, err := SamplesFromVCF(*vcfFile, m1, m2)
 	if err != nil {
 		log.Println(err)
-		os.Exit(2)
+		os.Exit(3)
 	}
 	log.Println(fmt.Sprintf("Got %d samples from vcf", len(s)))
 	// make the separate sample bed files from the ROH input file
 	err = sampleBEDsFromROH(*rohFile, mapSamples, mapChr, m1, m2)
 	if err != nil {
 		log.Println(err)
-		os.Exit(3)
+		os.Exit(4)
 	}
 	log.Println("Sample bed files created")
-	err = handleSamples(*vcfFile, s, m1, m2, *keepHetVCFs)
+
+	//make temp file from wanted samples
+	vcf := "use_" + filepath.Base(*vcfFile)
+	err = multiSampleVCF(s, *vcfFile, "use_"+filepath.Base(*vcfFile))
 	if err != nil {
 		log.Println(err)
-		os.Exit(4)
+		//os.Exit(5)
+		// if this fails, just use the input vcf
+		vcf = *vcfFile
+	}
+	log.Println("Subset of vcf created with required samples")
+
+	err = indexVCF(vcf)
+	if err != nil {
+		log.Println(err)
+		//os.Exit(6)// usual error is index already there 255
+	}
+	log.Println("Subset of vcf indexed")
+
+	// handle each sample
+	log.Println("Starting sample handling")
+	err = handleSamples(vcf, s, m1, m2, *keepHetVCFs)
+	if err != nil {
+		log.Println(err)
+		os.Exit(7)
 	}
 
 	log.Println("Finished")
@@ -92,19 +117,19 @@ func main() {
 // the final vcfs of het calls in ROH regions are also saved
 func handleSamples(vcf string, s []string, m1, m2 map[string]string, keep bool) (err error) {
 	// base filename
-	vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
+	vcfBase := strings.TrimSuffix(vcf, ".vcf.gz")
 	// open the stats file
 	f, err := os.Create("stats_" + vcfBase + ".csv")
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	f.WriteString("sample,allVariants,hetVariants,allFilteredVariants, hetFilteredVariants, allROHVariants,hetROHVariants, allFilteredROHVariants, hetFilteredROHVariants\n")
+	f.WriteString("sample, sample2, hetFilteredVariants, allROHVariants,hetROHVariants, allFilteredROHVariants, hetFilteredROHVariants\n")
 	//f.WriteString("sample,allROHVariants,hetROHVariants,allFilteredROHVariants,hetFilteredROHVariants\n")
 
 	// deal with each sample
 	for i := range s {
-		fmt.Printf("Sample %s: %d of %d\n", s[i], i, len(s))
+		fmt.Printf("%s: Sample %s: %d of %d\n", time.Now().String(), s[i], i, len(s))
 		if _, err := os.Stat(s[i] + ".bed"); os.IsNotExist(err) {
 			// does not exist in ROH so no bed file- next sample
 			fmt.Println("no bed file for", s[i])
@@ -112,7 +137,7 @@ func handleSamples(vcf string, s []string, m1, m2 map[string]string, keep bool) 
 		}
 
 		// get the single sample vcf
-		ssVCF := vcfBase + "_" + s[i] + ".vcf"
+		ssVCF := vcfBase + "_" + s[i] + ".vcf.gz"
 		err = singleSampleVCF(s[i], vcf, ssVCF)
 		if err != nil {
 
@@ -127,21 +152,23 @@ func handleSamples(vcf string, s []string, m1, m2 map[string]string, keep bool) 
 			f.WriteString(fmt.Sprintf("%s, %s,%s,%s,%s", s[i], all, het, allF, hetF))
 		*/
 		// compress and index
-		comSSVCF, err := compressVCF(ssVCF)
+		/*comSSVCF, err := compressVCF(ssVCF)
 		if err != nil {
 
 			return err
-		}
-		os.Remove(ssVCF)
+		}*/
+		comSSVCF := ssVCF // temp. was making then compressing
+		//os.Remove(ssVCF)
 
-		_, err = indexVCF(comSSVCF)
+		err = indexVCF(comSSVCF)
 		if err != nil {
-			return err
+			fmt.Println(err)
+			// but carry on ... usually this fails with the index existing
 		}
 
 		// intersect with roh regions if we have this sample
 		if _, err := os.Stat(s[i] + ".bed"); os.IsNotExist(err) {
-			// does not exist -
+			// does not exist - not a sample we are using
 			continue
 		}
 		intersect, err := intersectVCF(comSSVCF, s[i]+".bed")
@@ -150,6 +177,8 @@ func handleSamples(vcf string, s []string, m1, m2 map[string]string, keep bool) 
 			return err
 		}
 		os.Remove(comSSVCF)
+		os.Remove(comSSVCF + ".csi")
+		os.Remove(comSSVCF + ".tbi")
 		allR, hetR, allRF, hetRF, err := countVariants(intersect)
 		if err != nil {
 			return err
@@ -198,6 +227,23 @@ func SamplesFromVCF(vcf string, m1 map[string]string, m2 map[string]string) (sam
 		}
 
 	}
+	s = nil
+	s2 = nil
+	runtime.GC() // see whether this helps with slowing down
+
+	return
+}
+
+// subset vcf by sample list
+func multiSampleVCF(samples []string, vcf string, outputvcf string) (err error) {
+	//vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
+	//file = vcfBase + "_" + sample + ".vcf"
+
+	_, err = exec.Command("bcftools", "view", "-s", strings.Join(samples, ","), "-c1", "-o", outputvcf, "-O", "z", vcf).Output()
+	if err != nil {
+		err = fmt.Errorf("Couldn't get calls for samples %s from vcf %s, is bcftools installed? %s", strings.Join(samples, ","), vcf, err.Error())
+
+	}
 	return
 }
 
@@ -205,7 +251,7 @@ func singleSampleVCF(sample string, vcf string, outputvcf string) (err error) {
 	//vcfBase := strings.TrimSuffix(filepath.Base(vcf), ".vcf.gz")
 	//file = vcfBase + "_" + sample + ".vcf"
 
-	_, err = exec.Command("bcftools", "view", "-s", sample, "-c1", "-o", outputvcf, vcf).Output()
+	_, err = exec.Command("bcftools", "view", "-s", sample, "-c1", "-o", outputvcf, "-Oz", vcf).Output()
 	if err != nil {
 		err = fmt.Errorf("Couldn't get calls for sample %s from vcf %s, is bcftools installed? %s", sample, vcf, err.Error())
 
@@ -224,11 +270,13 @@ func compressVCF(vcf string) (file string, err error) {
 	return
 }
 
-func indexVCF(vcf string) (file string, err error) {
-	file = vcf + ".gz"
-
-	_, err = exec.Command("bcftools", "index", vcf).Output()
+func indexVCF(vcf string) (err error) {
+	//file = vcf + ".gz"
+	// use -f or it fails if index already found
+	out, err := exec.Command("bcftools", "index", "-f", vcf).Output()
 	if err != nil {
+		fmt.Println(out)
+		fmt.Println(err)
 		err = fmt.Errorf("Couldn't index  vcf %s, is bcftools installed? %s", vcf, err.Error())
 		return
 	}
@@ -389,8 +437,11 @@ func sampleBEDsFromROH(roh string, renameSamples, renameChromosomes bool, m1 map
 		}
 		sample1 := line[1]
 		sample := ""
+		altSample := ""
 		if renameSamples {
 			if val, ok := m1[sample1]; ok {
+
+				altSample = sample
 				sample = val
 			} else {
 				sample = "unmapped_" + sample1
@@ -401,10 +452,12 @@ func sampleBEDsFromROH(roh string, renameSamples, renameChromosomes bool, m1 map
 				sample = "blank_" + sample1
 			}
 		} else { // no mapping but must be in the map file
-			if _, ok := m1[sample1]; ok {
+			if v, ok := m1[sample1]; ok {
 				sample = sample1
-			} else if _, ok := m2[sample1]; ok {
+				altSample = v
+			} else if v, ok := m2[sample1]; ok {
 				sample = sample1
+				altSample = v
 				//fmt.Println(fmt.Sprintf("sample in regions not in vcf %s (OK)", sample1))
 			} else {
 				continue // don't need this one
@@ -415,7 +468,7 @@ func sampleBEDsFromROH(roh string, renameSamples, renameChromosomes bool, m1 map
 		end := line[4]
 		if (!strings.HasPrefix(sample, "unmapped")) && (!strings.HasPrefix(sample, "blank")) {
 			// only add real samples from the vcf to the bed files
-			bedfields := []string{chromosome, start, end, sample, sample1} /// samples ignored in processing
+			bedfields := []string{chromosome, start, end, sample, altSample} /// samples ignored in processing
 			bedline := strings.Join(bedfields, "\t")
 			//fmt.Println(bedline)
 			// for now make both sample sets
@@ -501,7 +554,7 @@ func SamplesAndChrFromVCF(vcf string) (s map[string]bool, chr string, err error)
 		return
 	}
 	s2 = strings.Fields(string(out))
-	fmt.Println(s2)
+	//fmt.Println(s2)
 	if strings.HasPrefix("s2[0]", "chr") {
 		chr = "chr"
 	} else {
@@ -524,7 +577,7 @@ func dataChecks(vcfFile, rohFile, mapFile string) (mapSamples, mapChrs bool, err
 		err = fmt.Errorf("Datachecks 1: %s", err.Error())
 		return
 	}
-	fmt.Println(vs, vc)
+	//fmt.Println(vs, vc)
 	rs, rc, err := SamplesAndChrFromROH(rohFile)
 	if err != nil {
 		err = fmt.Errorf("Datachecks 2: %s", err.Error())
@@ -557,7 +610,7 @@ func dataChecks(vcfFile, rohFile, mapFile string) (mapSamples, mapChrs bool, err
 		}
 	}
 
-	out := fmt.Sprintf("%s,%d,%d,%s,%d,%d\n", chrNamesROH, sampleCountROH, chrCountROH, chrNamesVCF, sampleCountVCF, sampleCountMap)
+	out := fmt.Sprintf("%s chromosome names in ROH file,%d samples in ROH file,%d chromosomes in ROH file,%s chromosome names in vcf,%d sample count vcf,%d sample count map\n", chrNamesROH, sampleCountROH, chrCountROH, chrNamesVCF, sampleCountVCF, sampleCountMap)
 	fmt.Println(out)
 	if chrNamesROH != chrNamesVCF {
 		mapChrs = true
@@ -565,7 +618,7 @@ func dataChecks(vcfFile, rohFile, mapFile string) (mapSamples, mapChrs bool, err
 
 	// where do samples match? vs is vcf samples, rs is roh samples, mF is forwardmap mR is reverse map
 	both, first, second := overlap(vs, rs)
-	fmt.Println(both, first, second)
+	//fmt.Println(both, first, second)
 	if both > 0 && first == 0 && second == 0 {
 		// no mapping needed
 		fmt.Println("No mapping needed")

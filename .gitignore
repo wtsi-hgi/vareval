@@ -7,6 +7,7 @@
 *.csi
 mendelian_errors/*.txt
 roh_comparison/*.csv
+roh_comparison/*.txt
 # executables
 roh_comparison/roh_comparison  
 mendelian_errors/mendelian_errors 

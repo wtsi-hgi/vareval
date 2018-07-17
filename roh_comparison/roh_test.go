@@ -19,6 +19,7 @@ func testSamplesAndChrFromVCF(t *testing.T) {
 }
 
 func TestDataChecks(t *testing.T) {
+	fmt.Println("Data Checks")
 	v := "/home/sjc/Downloads/h38_megaELGH.wg.max_missingness_2pc.with_AF.sorted.vcf.gz"
 	r := "/home/sjc/testdata/ROH_regions/allROH.txt"
 	m := "/home/sjc/Downloads/sample_id_mappings_egan_to_elgh"
@@ -27,6 +28,7 @@ func TestDataChecks(t *testing.T) {
 }
 
 func testSampleBEDsFromROH(t *testing.T) {
+	fmt.Println("SampleBEDsFromROH")
 	file1 := "/home/sjc/Downloads/sample_id_mappings_egan_to_elgh"
 	rohfile := "/home/sjc/testdata/ROH_regions/allROH.txt"
 
@@ -36,7 +38,7 @@ func testSampleBEDsFromROH(t *testing.T) {
 		t.Errorf("%s", err.Error())
 	}
 
-	err = sampleBEDsFromROH(rohfile, true, true, m)
+	err = sampleBEDsFromROH(rohfile, true, true, m, m)
 	if err != nil {
 		t.Errorf("%s", err.Error())
 	}
@@ -44,6 +46,7 @@ func testSampleBEDsFromROH(t *testing.T) {
 }
 
 func TestOverlap(t *testing.T) {
+	fmt.Println("Overlap")
 	m := make(map[string]bool)
 	m["a"] = true
 	m["b"] = true
@@ -56,4 +59,12 @@ func TestOverlap(t *testing.T) {
 	n["d"] = true
 	n["x"] = true*/
 	fmt.Println(overlap(m, n))
+}
+
+func TestIndex(t *testing.T) {
+	vcf := "use_h38_megaELGH.wg.max_missingness_2pc.with_AF.sorted.vcf.gz"
+	err := indexVCF(vcf)
+	if err != nil {
+		t.Errorf("%s", err.Error())
+	}
 }
