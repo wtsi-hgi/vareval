@@ -8,11 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func main() {
@@ -30,7 +28,8 @@ func main() {
 	// set up logging
 	f, err := os.Create("log_" + strings.TrimSuffix(filepath.Base(*vcfFile), ".vcf.gz") + ".txt")
 	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+		log.Println(err)
+		os.Exit(1)
 	}
 	defer f.Close()
 	log.SetOutput(f)
@@ -41,7 +40,7 @@ func main() {
 	mapSamples, mapChr, err := dataChecks(*vcfFile, *rohFile, *mapFile)
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 	if mapSamples {
 		log.Println("samples in ROH file and vcf do not match, mapping file will be used")
@@ -56,23 +55,21 @@ func main() {
 
 	// set up the mapping between sample names (ROH to vcf)
 	var m1, m2 map[string]string
-	//if mapSamples { needed anyway for filtering
 	m1, m2, err = mapSampleNames(*mapFile)
-	if err != nil {
-		log.Println(err)
-		os.Exit(2)
-	}
-	log.Println("Set up sample maps")
-
-	//}
-	// Find the samples from the multisample vcf which
-	// are also in the map file
-	s, err := SamplesFromVCF(*vcfFile, m1, m2)
 	if err != nil {
 		log.Println(err)
 		os.Exit(3)
 	}
-	log.Println(fmt.Sprintf("Got %d samples from vcf", len(s)))
+	log.Println("Set up sample maps")
+
+	// Find the samples from the multisample vcf which
+	// are also in the map file
+	s, diff, err := SamplesFromVCF(*vcfFile, m1, m2)
+	if err != nil {
+		log.Println(err)
+		os.Exit(3)
+	}
+	log.Println(fmt.Sprintf("Got %d samples from vcf containing %d samples", len(s), len(s)+diff))
 	// make the separate sample bed files from the ROH input file
 	err = sampleBEDsFromROH(*rohFile, mapSamples, mapChr, m1, m2)
 	if err != nil {
@@ -82,15 +79,19 @@ func main() {
 	log.Println("Sample bed files created")
 
 	//make temp file from wanted samples
-	vcf := "use_" + filepath.Base(*vcfFile)
-	err = multiSampleVCF(s, *vcfFile, "use_"+filepath.Base(*vcfFile))
-	if err != nil {
-		log.Println(err)
-		//os.Exit(5)
-		// if this fails, just use the input vcf
-		vcf = *vcfFile
+	vcf := *vcfFile
+	threshold := 50 // is it worth cutting down the input file to only what we want
+	if diff > threshold {
+		vcf = "part_" + filepath.Base(*vcfFile)
+		err = multiSampleVCF(s, *vcfFile, vcf)
+		if err != nil {
+			log.Println(err)
+			//os.Exit(5)
+			// if this fails, just use the input vcf
+			vcf = *vcfFile
+		}
+		log.Println("Subset of vcf created with required samples")
 	}
-	log.Println("Subset of vcf created with required samples")
 
 	err = indexVCF(vcf)
 	if err != nil {
@@ -99,118 +100,122 @@ func main() {
 	}
 	log.Println("Subset of vcf indexed")
 
+	// open the stats file
+	vcfBase := strings.TrimSuffix(vcf, ".vcf.gz")
+	fStats, err := os.Create("stats_" + vcfBase + ".csv")
+	if err != nil {
+		return
+	}
+	defer fStats.Close()
+	fStats.WriteString("sample, sample2, allROHVariants,hetROHVariants, allFilteredROHVariants, hetFilteredROHVariants\n")
+	//f.WriteString("sample,allROHVariants,hetROHVariants,allFilteredROHVariants,hetFilteredROHVariants\n")
+
 	// handle each sample
 	log.Println("Starting sample handling")
-	err = handleSamples(vcf, s, m1, m2, *keepHetVCFs)
-	if err != nil {
-		log.Println(err)
-		os.Exit(7)
+	for i := range s {
+		str := fmt.Sprintf("Sample %s: %d of %d", s[i], i, len(s))
+		fmt.Println(str)
+		log.Println(str)
+		stats, err := handleSample(vcf, s[i], m1, m2, *keepHetVCFs)
+
+		if err != nil {
+			log.Println(err)
+			os.Exit(7)
+		}
+		fmt.Println(stats)
+		if len(strings.TrimSpace(stats)) > 0 {
+			fStats.WriteString(stats + "\n")
+		}
+
 	}
 
 	log.Println("Finished")
 }
 
-// handleSamples works out eight counts for each sample and saves them to a stats file
+// handleSample works out four (or 8) counts for the sample and saves them to a stats file
 // format sampleid, allcalls, all het calls,all filtered calls, all filtered het calls,
 //  all calls in ROH, all het calls in ROH, all filtered calls in ROH and all filtered het calls in ROH
 // if no filter was applied the filtered set will match the unfiltered set.
 // the final vcfs of het calls in ROH regions are also saved
-func handleSamples(vcf string, s []string, m1, m2 map[string]string, keep bool) (err error) {
+func handleSample(vcf string, sample string, m1, m2 map[string]string, keep bool) (stats string, err error) {
 	// base filename
 	vcfBase := strings.TrimSuffix(vcf, ".vcf.gz")
-	// open the stats file
-	f, err := os.Create("stats_" + vcfBase + ".csv")
+
+	// deal with the sample
+
+	if _, err = os.Stat(sample + ".bed"); os.IsNotExist(err) {
+		// does not exist in ROH so no bed file- next sample
+		fmt.Println("no bed file for", sample)
+		return
+	}
+
+	// get the single sample vcf
+	ssVCF := vcfBase + "_" + sample + ".vcf.gz"
+	err = singleSampleVCF(sample, vcf, ssVCF)
+	if err != nil {
+
+		return
+	}
+	// count all calls and het calls slow if used
+	/*
+		all, het, allF, hetF, err := countVariants(ssVCF)
+		if err != nil {
+			return err
+		}
+		f.WriteString(fmt.Sprintf("%s, %s,%s,%s,%s", s[i], all, het, allF, hetF))
+	*/
+	// compress and index
+	/*comSSVCF, err := compressVCF(ssVCF)
+	if err != nil {
+
+		return err
+	}*/
+	comSSVCF := ssVCF // temp. was making then compressing
+	//os.Remove(ssVCF)
+
+	err = indexVCF(comSSVCF)
+	if err != nil {
+		fmt.Println(err)
+		// but carry on ... usually this fails with the index existing
+	}
+
+	// intersect with roh regions bed (we know it exists)
+	intersect, err := intersectVCF(comSSVCF, sample+".bed")
 	if err != nil {
 		return
 	}
-	defer f.Close()
-	f.WriteString("sample, sample2, hetFilteredVariants, allROHVariants,hetROHVariants, allFilteredROHVariants, hetFilteredROHVariants\n")
-	//f.WriteString("sample,allROHVariants,hetROHVariants,allFilteredROHVariants,hetFilteredROHVariants\n")
-
-	// deal with each sample
-	for i := range s {
-		fmt.Printf("%s: Sample %s: %d of %d\n", time.Now().String(), s[i], i, len(s))
-		if _, err := os.Stat(s[i] + ".bed"); os.IsNotExist(err) {
-			// does not exist in ROH so no bed file- next sample
-			fmt.Println("no bed file for", s[i])
-			continue
-		}
-
-		// get the single sample vcf
-		ssVCF := vcfBase + "_" + s[i] + ".vcf.gz"
-		err = singleSampleVCF(s[i], vcf, ssVCF)
-		if err != nil {
-
-			return
-		}
-		// count all calls and het calls slow if used
-		/*
-			all, het, allF, hetF, err := countVariants(ssVCF)
-			if err != nil {
-				return err
-			}
-			f.WriteString(fmt.Sprintf("%s, %s,%s,%s,%s", s[i], all, het, allF, hetF))
-		*/
-		// compress and index
-		/*comSSVCF, err := compressVCF(ssVCF)
-		if err != nil {
-
-			return err
-		}*/
-		comSSVCF := ssVCF // temp. was making then compressing
-		//os.Remove(ssVCF)
-
-		err = indexVCF(comSSVCF)
-		if err != nil {
-			fmt.Println(err)
-			// but carry on ... usually this fails with the index existing
-		}
-
-		// intersect with roh regions if we have this sample
-		if _, err := os.Stat(s[i] + ".bed"); os.IsNotExist(err) {
-			// does not exist - not a sample we are using
-			continue
-		}
-		intersect, err := intersectVCF(comSSVCF, s[i]+".bed")
-		if err != nil {
-
-			return err
-		}
-		os.Remove(comSSVCF)
-		os.Remove(comSSVCF + ".csi")
-		os.Remove(comSSVCF + ".tbi")
-		allR, hetR, allRF, hetRF, err := countVariants(intersect)
-		if err != nil {
-			return err
-		}
-		// both sample names
-		s1 := s[i]
-		s2 := s[i]
-		if v, ok := m1[s[i]]; ok {
-			s1 = v
-		}
-		if v, ok := m2[s[i]]; ok {
-			s2 = v
-		}
-		f.WriteString(fmt.Sprintf("%s,%s, %s,%s,%s,%s\n", s1, s2, allR, hetR, allRF, hetRF))
-		// replace by following line if also finding all calls (ie not in ROH regions)
-		//f.WriteString(fmt.Sprintf(",%s,%s,%s,%s\n", allR, hetR, allRF, hetRF))
-
-		// output actual het calls while testing
-		err = hetCalls(intersect, "het_"+intersect)
-
-		if err != nil {
-			return err
-		}
-		os.Remove(intersect)
-
+	// tidy up
+	os.Remove(comSSVCF)
+	os.Remove(comSSVCF + ".csi")
+	os.Remove(comSSVCF + ".tbi")
+	allR, hetR, allRF, hetRF, err := countVariants(intersect)
+	if err != nil {
+		return
 	}
+	// both sample names for stats file
+	s1 := sample
+	s2 := sample
+	if v, ok := m1[sample]; ok {
+		s1 = v
+	}
+	if v, ok := m2[sample]; ok {
+		s2 = v
+	}
+	//f.WriteString(fmt.Sprintf("%s,%s, %s,%s,%s,%s\n", s1, s2, allR, hetR, allRF, hetRF))
+	stats = fmt.Sprintf("%s,%s, %s,%s,%s,%s", s1, s2, allR, hetR, allRF, hetRF)
+	fmt.Println(stats)
+	// replace by following line if also finding all calls (ie not in ROH regions)
+	//f.WriteString(fmt.Sprintf(",%s,%s,%s,%s\n", allR, hetR, allRF, hetRF))
+
+	// output actual het calls while testing (we already counted them)
+	err = hetCalls(intersect, "het_"+intersect)
+	os.Remove(intersect)
 	return
 }
 
 // SamplesFromVCF will error if can't find bcftools .. will be run in docker containing it
 // only use samples we have in the mapping file but report others
-func SamplesFromVCF(vcf string, m1 map[string]string, m2 map[string]string) (samples []string, err error) {
+func SamplesFromVCF(vcf string, m1 map[string]string, m2 map[string]string) (samples []string, difference int, err error) {
 	s, err := exec.Command("bcftools", "query", "-l", vcf).Output()
 	if err != nil {
 		err = fmt.Errorf("Couldn't get samples from vcf, is bcftools installed? %s", err.Error())
@@ -222,14 +227,15 @@ func SamplesFromVCF(vcf string, m1 map[string]string, m2 map[string]string) (sam
 	for i := range s2 {
 		if _, ok := m1[s2[i]]; ok { /// exists in forward map
 			samples = append(samples, s2[i])
-		} else if _, ok := m2[s2[i]]; ok { /// exists in freverse map
+		} else if _, ok := m2[s2[i]]; ok { /// exists in reverse map
 			samples = append(samples, s2[i])
 		}
-
 	}
-	s = nil
-	s2 = nil
-	runtime.GC() // see whether this helps with slowing down
+	samplesInMaps := len(m1)
+	samplesInVCF := len(s2)
+	difference = samplesInVCF - samplesInMaps
+
+	//runtime.GC() // see whether this helps with slowing down
 
 	return
 }
