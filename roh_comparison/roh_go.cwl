@@ -9,18 +9,13 @@ baseCommand: []
 requirements:
   - class: DockerRequirement
     dockerPull:  mercury/bcftools-1.6:v2
-  - class: InitialWorkDirRequirement
-    listing:
-        - $(inputs.executable)
 
 inputs:
   - id: executable
     type: File   
     inputBinding:
       position: 1
-      prefix: ./
-      separate: false
-      valueFrom: $(self.basename)
+      
       
   - id: ROH_chr
     type: File
