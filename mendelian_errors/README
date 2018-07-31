@@ -18,8 +18,11 @@ is (or can be) addressed at all by the plugin (TO CHECK)
 Steps
 
 1) get the sample list from the vcf (we used ega_id)
-2) make a trios file for these samples using the mapping and the trios file
+2) make a trios file for bcftools for these samples using the mapping and the trios file
 3) run the plugin using bcftools +mendelian <vcf>  -T <trios> -c > <output>
+
+It's important to check the input file format, which is non standard,
+if that changes the code must change to match.
 
 Input files:
 The original trios file has the tab separated format 
@@ -27,3 +30,6 @@ decipher_id	proband_stable_id	mother_stable_id	father_stable_id
 
 The original mapping file has tab separated format 
 decipher_id	person_stable_id	sanger_id	ega_id	is_proband	gender
+
+Note:
+Gender could be used as a sense check on mother and father (hasn't yet)

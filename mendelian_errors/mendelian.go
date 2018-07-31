@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strings"
 )
 
+// ./mendelian_errors -map= -trios= -vcf=
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// set up parameters
@@ -21,6 +23,8 @@ func main() {
 	vcfFile := flag.String("vcf", "", "a multisample vcf to analyse")
 	flag.Parse()
 
+	triosTempFile := "vcf_trios.txt"
+
 	// Find the samples from the multisample vcf
 	s, err := SamplesFromVCF(*vcfFile)
 	if err != nil {
@@ -28,7 +32,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	// set up the mapping between sample names (ROH to vcf)
+	// set up the mapping between sample names (trios to vcf)
 	m, err := mapSampleNames(*mapFile, s)
 	if err != nil {
 		log.Println(err)
@@ -36,13 +40,13 @@ func main() {
 	}
 
 	// make the corrected trios file for these samples
-	err = makeTriosFile(*triosFile, "vcf_trios.txt", m, s)
+	err = makeTriosFile(*triosFile, triosTempFile, m, s)
 	if err != nil {
 		log.Println(err)
 		os.Exit(3)
 	}
 
-	err = mendelianPlugin(*vcfFile, "vcf_trios.txt")
+	err = mendelianPlugin(*vcfFile, triosTempFile)
 	if err != nil {
 		log.Println(err)
 		os.Exit(4)
@@ -53,20 +57,31 @@ func main() {
 func mendelianPlugin(vcf string, trios string) (err error) {
 	// call the bcf plugin
 	// bcftools +mendelian <vcf>  -T <trios> -c > <output>
-	output, err := exec.Command("bcftools", "+mendelian", vcf, "-T", trios, "-c").Output()
+	cmd := exec.Command("bcftools", "+mendelian", vcf, "-T", trios, "-c")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
 	if err != nil {
-		err = fmt.Errorf("Couldn't run mendelian plugin : %s", err.Error())
+		log.Fatalf("cmd.Run() failed with %s\n", err)
+	}
+	outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
+	fmt.Printf("out:\n%s\nerr:\n%s\n", outStr, errStr)
+	/* changed as the output is in stderr and this is not a good way to capture it
+	output, err := exec.Command("bcftools", "+mendelian", vcf, "-T", trios, "-c", "2>xx").Output()
+	if err != nil {
+		err = fmt.Errorf("Couldn't run mendelian plugin for vcf %s with trios %s : %s", vcf, trios, err.Error())
 		return
 	}
-	//fmt.Println(string(output))
-	f, err := os.Open("mendelian_output")
+	fmt.Println(string(output))*/
+	f, err := os.Create("mendelian_output")
 	if err != nil {
 		err = fmt.Errorf("Couldn't open the output file : %s", err.Error())
 		return
 	}
 	defer f.Close()
 
-	f.WriteString(string(output))
+	f.WriteString(string(errStr))
 
 	return
 }
@@ -147,7 +162,7 @@ func makeTriosFile(inFile string, outfile string, m map[string]string, samples m
 			return
 		}
 
-		nextLine := fmt.Sprintf("%s\t%s\t%s\n", m[next2[1]], m[next2[2]], m[next2[3]])
+		nextLine := fmt.Sprintf("%s,%s,%s\n", m[next2[1]], m[next2[2]], m[next2[3]])
 		_, ok1 := samples[m[next2[1]]]
 		_, ok2 := samples[m[next2[2]]]
 		_, ok3 := samples[m[next2[3]]]
