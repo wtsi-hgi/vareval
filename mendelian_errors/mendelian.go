@@ -15,12 +15,12 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// set up parameters
-	mapFile := flag.String("map", "", "mapping between stable ids and sample names")
+	mapFile := flag.String("map", "/tmp/map.txt", "mapping between stable ids and sample names")
 	//a mapping file of sample names (different in the vcf and the trios files)
 	//a list of ROH regions by sample and chromosome
-	triosFile := flag.String("trios", "", "file of trio relationships (using stable ids)")
+	triosFile := flag.String("trios", "/tmp/alltrios.txt", "file of trio relationships (using stable ids)")
 	//a multisample vcf
-	vcfFile := flag.String("vcf", "", "a multisample vcf to analyse")
+	vcfFile := flag.String("vcf", "/tmp/vcf.vcf.gz", "a multisample vcf to analyse")
 	flag.Parse()
 
 	triosTempFile := "vcf_trios.txt"
@@ -57,13 +57,14 @@ func main() {
 func mendelianPlugin(vcf string, trios string) (err error) {
 	// call the bcf plugin
 	// bcftools +mendelian <vcf>  -T <trios> -c > <output>
-	cmd := exec.Command("bcftools", "+mendelian", vcf, "-T", trios, "-c")
+	// the -- changed between 1.3.1 and 1.7 not sure where
+	cmd := exec.Command("bcftools", "+mendelian", vcf /*"--",*/, "-T", trios, "-c")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
 	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
+		log.Fatalf("Failed to call bcftools mendelian plugin: cmd.Run() failed with %s\n", err)
 	}
 	outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
 	fmt.Printf("out:\n%s\nerr:\n%s\n", outStr, errStr)

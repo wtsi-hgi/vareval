@@ -12,3 +12,4 @@ roh_comparison/*.txt
 roh_comparison/roh_comparison  
 mendelian_errors/mendelian_errors 
 *_log
+mendelian_errors/bcftools*
