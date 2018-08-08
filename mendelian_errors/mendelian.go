@@ -1,3 +1,30 @@
+/* Copyright (c) 2018 Genome Research Ltd.
+
+Authors:
+* Sarah Chacko sc35@sanger.ac.uk
+
+This file is part of the vareval project.
+
+vareval is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <http://www.gnu.org/licenses/>.
+
+------------------------------------------------------------------------------------
+*/
+
+// This package uses known 'truth' data about relatedness (mother/father/child trios) in samples
+// to find variants that could not be inherited (using bcftools mendelian plugin)
+// so are either errors or de novo mutations,
+// as a check on the accuracy of different variant callers
 package main
 
 import (
@@ -15,6 +42,8 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// set up parameters
+	// the defaults are for ease of use when run in docker, you map the real files
+	// to the default file names.
 	mapFile := flag.String("map", "/tmp/map.txt", "mapping between stable ids and sample names")
 	//a mapping file of sample names (different in the vcf and the trios files)
 	//a list of ROH regions by sample and chromosome

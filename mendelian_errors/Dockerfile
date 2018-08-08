@@ -18,9 +18,6 @@ RUN cd /tmp/bcftools-1.9 \
   && make \
   && make install 
 
-
-
-
 #Must be set to use plugins (that's changed location in 1.9)
 ENV BCFTOOLS_PLUGINS=/usr/local/libexec/bcftools
 
