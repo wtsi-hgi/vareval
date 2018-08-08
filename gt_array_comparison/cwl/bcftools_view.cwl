@@ -1,6 +1,11 @@
 class: CommandLineTool
 cwlVersion: v1.0
 id: bcftools_extract_sample
+
+requirements:
+  DockerRequirement:
+    dockerPull: mercury/bcftools-1.6:v1
+
 baseCommand:
   - bcftools
   - view
@@ -11,22 +16,22 @@ inputs:
     symbols: ['u','o','z','b']
     inputBinding:
       prefix: -O
-    doc: Output blah
+  region:
+    type: str?
+    inputBinding:
+      prefix: -r
   sample:
     type: string
     inputBinding:
       prefix: -s
-    doc: Blah
-  output_filename:	
+  output_filename:
     type: string
     inputBinding:
       prefix: -o
-      valueFrom: "$(runtime.outdir)/$(self)"
   input_vcf:
     type: File
     inputBinding:
       position: 1
-    doc: Blah
 
 outputs:
   output_vcf:
