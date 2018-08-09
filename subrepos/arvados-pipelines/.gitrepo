@@ -1,0 +1,11 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/git-commands/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/wtsi-hgi/arvados-pipelines
+	branch = master
+	commit = 853dd7b285f842faa9f7e4570443cdb7aa3ca993
+	parent = e58a1dd30824c6d01479d241c37d48aeeb2d8822
+	cmdver = 0.3.1

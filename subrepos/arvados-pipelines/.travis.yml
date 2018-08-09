@@ -1,0 +1,12 @@
+sudo: required
+
+language: python
+
+python:
+  - "3.6"
+
+install:
+  - pip install -r cwl/test_requirements.txt
+
+script:
+  - pytest cwl/tests/test.py
