@@ -12,12 +12,18 @@ baseCommand:
 
 inputs:
   out_type:
-    type: enum?
-    symbols: ['u','o','z','b']
+    type:
+    - 'null'
+    - type: enum
+      symbols:
+      - 'u'
+      - 'o'
+      - 'z'
+      - 'b'
     inputBinding:
       prefix: -O
   region:
-    type: str?
+    type: string?
     inputBinding:
       prefix: -r
   sample:
@@ -34,7 +40,7 @@ inputs:
       position: 1
 
 outputs:
-  output_vcf:
+  sample_vcf:
     type: File
     outputBinding:
       glob: $(inputs.output_filename)

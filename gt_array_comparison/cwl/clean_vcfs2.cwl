@@ -18,12 +18,18 @@ arguments:
 
 inputs:
   out_type:
-    type: enum?
-    symbols: ['u','o','z','b']
+    type:
+    - 'null'
+    - type: enum
+      symbols:
+      - 'u'
+      - 'o'
+      - 'z'
+      - 'b'
 #    inputBinding:
 #      prefix: -O
   region:
-    type: str?
+    type: string?
  #   inputBinding:
  #     prefix: -r
   sample_list:
@@ -31,8 +37,14 @@ inputs:
 #    inputBinding:
 #      prefix: -s
   check-ref:
-    type: enum?
-    symbols: ['e', 'w', 'x', 's']
+    type:
+    - 'null'
+    - type: enum
+      symbols:
+      - 'e'
+      - 'w'
+      - 'x'
+      - 's'
     default: s
 #    inputBinding:
 #      prefix: -c
@@ -41,13 +53,23 @@ inputs:
 #   inputBinding:
 #      prefix: -f
   multiallelics:
-    type: enum?
-    symbols: ['+snps', '+indels', '+both', '+any', '-snps', '-indels', '-both', '-any']
+    type:
+    - 'null'
+    - type: enum
+      symbols:
+      - '+snps'
+      - '+indels'
+      - '+both'
+      - '+any'
+      - '-snps'
+      - '-indels'
+      - '-both'
+      - '-any'
     default: +any
 #    inputBinding:
 #      prefix: -m
   remove-annotations:
-    type: str?
+    type: string?
     default: FORMAT/AD
 #   inputBinding:
 #     prefix: -x
@@ -62,7 +84,7 @@ inputs:
 #      position: 1
 
 outputs:
-  output_vcf:
+  clean_vcf_per_chr:
     type: File
     outputBinding:
       glob: $(inputs.output_filename)

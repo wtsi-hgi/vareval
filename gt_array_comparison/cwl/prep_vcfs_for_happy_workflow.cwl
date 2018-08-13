@@ -34,11 +34,13 @@ steps:
         valueFrom: "z"
       ref: fasta_ref
       sample_list: sample_list
-      output_filename: $(inputs.input_vcf.basename.split(".vcf")[0]).$(inputs.region).clean.vcf.gz
+      output_filename:
+        valueFrom: $(inputs.input_vcf.basename).split(".vcf")[0].$(inputs.region).clean.vcf.gz
       input_vcf: multisample_vcf
-    out: chr_vcf_files
+    out:
+      [clean_vcf_per_chr]
   - id: Extract_sample
-    run: ./extract_single_sample_vcf.cwl
+    run: ./bcftools_view.cwl
     scatter: 
       - sample
       - input_vcf
@@ -48,34 +50,37 @@ steps:
         valueFrom: "z"
       sample:
         source: sample_list
-    	valueFrom: $(self.contents.split("\n"))
-      output_filename: $(inputs.input_vcf.basename.split(".vcf")[0]).$(sample).vcf.gz
-      input_vcf: Clean_vcfs2/chr_vcf_files
+        valueFrom: $(self.contents.split("\n"))
+      output_filename:
+        valueFrom: $(inputs.input_vcf.basename).split(".vcf")[0].($sample).vcf.gz
+      input_vcf: Clean_vcfs2/clean_vcf_per_chr
     out:
-      - sample_chr_vcfs
+      [sample_vcf]
   - id: Index_tbi
-    run: ../subrepos/arvados-pipelines/cwl/bcftools_index_tbi.cwl
+    run: ../../subrepos/arvados-pipelines/cwl/tools/bcftools/bcftools-index-tbi.cwl
     scatter: 
       - vcf
     in: 
       threads: threads
-      vcf: Extract_sample/sample_chr_vcfs
-      output_filename: $(inputs.vcf.basename).tbi
+      vcf: Extract_sample/sample_vcf
+      output_filename:
+        valueFrom: $(inputs.vcf.basename).tbi
     out:
-      - index_files
+      [index]
   - id: Combine_sample_vcfs_and_tbis
-    run: ../subrepos/arvados-pipelines/cwl/expression-tools/combine_files.cwl
+    run: ../../subrepos/arvados-pipelines/cwl/expression-tools/combine_files.cwl
     scatter:
       - main_file
-      - secondary_file
+      - secondary_files
     scatterMethod: dotproduct 
     in:
-      main_file: Extract_sample/sample_chr_vcfs
-      secondary_file: Index_tbi/index_files
-    out: sample_vcf_with_tbi_files
+      main_file: Extract_sample/sample_vcf
+      secondary_files: Index_tbi/index
+    out:
+      [file_with_secondary_files]
 
 outputs:
   - id: out
     type: File[]
-    outputSource: Combine_sample_vcfs_and_tbis/sample_vcf_with_tbi_files
+    outputSource: Combine_sample_vcfs_and_tbis/file_with_secondary_files
 
