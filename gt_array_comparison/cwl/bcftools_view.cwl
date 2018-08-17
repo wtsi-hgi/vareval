@@ -4,7 +4,7 @@ id: bcftools_extract_sample
 
 requirements:
   DockerRequirement:
-    dockerPull: mercury/bcftools-1.6:v1
+    dockerPull: mercury/bcftools-1.6:v2
 
 baseCommand:
   - bcftools

@@ -4,7 +4,7 @@ id: Clean_vcfs2
 
 requirements:
   DockerRequirement:
-    dockerPull: mercury/bcftools-1.6:v1
+    dockerPull: mercury/bcftools-1.6:v2
 
 baseCommand:
   - bash
@@ -13,8 +13,8 @@ baseCommand:
 arguments:
   - >
     bcftools view -r $(inputs.region) -S $(inputs.sample_list) $(inputs.input_vcf) |
-    bcftools norm -c $(inputs.check-ref) -f $(inputs.ref) -m $(inputs.multiallelics) |
-    bcftools annotate -O$(inputs.out_type) -x $(inputs.remove-annotations) -o $(inputs.output_filename)
+    bcftools norm -c $(inputs.checkref) -f $(inputs.ref) -m $(inputs.multiallelics) |
+    bcftools annotate -O$(inputs.out_type) -x $(inputs.remove_annotations) -o $(inputs.output_filename)
 
 inputs:
   out_type:
@@ -36,7 +36,7 @@ inputs:
     type: File?
 #    inputBinding:
 #      prefix: -s
-  check-ref:
+  checkref:
     type:
     - 'null'
     - type: enum
@@ -68,7 +68,7 @@ inputs:
     default: +any
 #    inputBinding:
 #      prefix: -m
-  remove-annotations:
+  remove_annotations:
     type: string?
     default: FORMAT/AD
 #   inputBinding:
