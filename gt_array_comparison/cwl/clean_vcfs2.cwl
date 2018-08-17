@@ -12,8 +12,8 @@ baseCommand:
 
 arguments:
   - >
-    bcftools view -r $(inputs.region) -S $(inputs.sample_list) $(inputs.input_vcf) |
-    bcftools norm -c $(inputs.checkref) -f $(inputs.ref) -m $(inputs.multiallelics) |
+    bcftools view -r $(inputs.region) -S $(inputs.sample_list.basename) $(inputs.input_vcf.basename) |
+    bcftools norm -c $(inputs.checkref) -f $(inputs.ref.basename) -m $(inputs.multiallelics) |
     bcftools annotate -O$(inputs.out_type) -x $(inputs.remove_annotations) -o $(inputs.output_filename)
 
 inputs:
