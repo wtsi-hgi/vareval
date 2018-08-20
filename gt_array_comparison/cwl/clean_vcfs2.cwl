@@ -5,6 +5,14 @@ id: Clean_vcfs2
 requirements:
   DockerRequirement:
     dockerPull: mercury/bcftools-1.6:v2
+  InitialWorkDirRequirement:
+    listing:
+      - entry: $(inputs.input_vcf)
+        entryname: $(inputs.input_vcf.basename)
+      - entry: $(inputs.ref)
+        entryname: $(inputs.ref.basename)
+      - entry: $(inputs.sample_list)
+        entryname: $(inputs.sample_list.basename)
 
 baseCommand:
   - bash
