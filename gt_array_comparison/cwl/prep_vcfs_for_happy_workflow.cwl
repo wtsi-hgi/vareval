@@ -23,22 +23,32 @@ inputs:
     type: int?
 
 steps:
+  - id: Make_regions_array
+    run: file_contents_to_array.cwl
+    in:
+      input_file: regions
+    out:
+      [contents_array]
   - id: Clean_vcfs2
     run: ./clean_vcfs2.cwl
     scatter: region
     in:
-      region:
-        source: regions
-        valueFrom: $(self.contents.split("\n"))
+      region: Make_regions_array/contents_array
       out_type:
         valueFrom: "z"
       ref: fasta_ref
       sample_list: sample_list
       output_filename:
-        valueFrom: $(inputs.input_vcf.basename).split(".vcf")[0].$(inputs.region).clean.vcf.gz
+        valueFrom: $(inputs.input_vcf.basename.split(".vcf")[0]).$(inputs.region).clean.vcf.gz
       input_vcf: multisample_vcf
     out:
       [clean_vcf_per_chr]
+  - id: Make_samples_array
+    run: file_contents_to_array.cwl
+    in:
+      input_file: sample_list
+    out:
+      [contents_array]
   - id: Extract_sample
     run: ./bcftools_view.cwl
     scatter: 
@@ -48,11 +58,9 @@ steps:
     in:
       out_type: 
         valueFrom: "z"
-      sample:
-        source: sample_list
-        valueFrom: $(self.contents.split("\n"))
+      sample: Make_samples_array/contents_array
       output_filename:
-        valueFrom: $(inputs.input_vcf.basename).split(".vcf")[0].($sample).vcf.gz
+        valueFrom: $(inputs.input_vcf.basename.split(".vcf")[0]).$(sample).vcf.gz
       input_vcf: Clean_vcfs2/clean_vcf_per_chr
     out:
       [sample_vcf]
