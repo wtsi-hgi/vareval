@@ -3,7 +3,6 @@ class: CommandLineTool
 doc: Makes an array from the lines contained in a file
 
 requirements:
-  - class: InlineJavascriptRequirement
   - class: InitialWorkDirRequirement
     listing:
     - entry: $(inputs.input_file)
@@ -23,8 +22,10 @@ baseCommand:
       with open(input_filename) as input:
         lines = [l.strip() for l in input.readlines()]
 
-      with open("tmp.json", "w") as output:
-        output.write(json.dumps(lines))
+      with open("cwl.output.json", "w") as output:
+        output.write(json.dumps({
+          "contents_array": lines
+          }))
 
 arguments: [$(inputs.input_file.basename)]
 
@@ -37,7 +38,3 @@ inputs:
 outputs:
   - id: contents_array
     type: string[]
-    outputBinding:
-      glob: tmp.json
-      loadContents: true
-      outputEval: $(JSON.parse(self[0].contents))
