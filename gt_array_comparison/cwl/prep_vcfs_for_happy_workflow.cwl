@@ -60,7 +60,7 @@ steps:
         valueFrom: "z"
       sample: Make_samples_array/contents_array
       output_filename:
-        valueFrom: $(inputs.input_vcf.basename.split(".vcf")[0]).$(sample).vcf.gz
+        valueFrom: $(inputs.input_vcf.basename.split(".vcf")[0]).$(inputs.sample).vcf.gz
       input_vcf: Clean_vcfs2/clean_vcf_per_chr
     out:
       [sample_vcf]
