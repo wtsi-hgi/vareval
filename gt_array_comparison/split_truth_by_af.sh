@@ -14,24 +14,21 @@ input_vcf="${1}"
 ac_file="${2}"
 af_file="${3}"
 
-#module load hgi/bcftools/latest
 
 if [ ! -f "${input_vcf}" ]; then
     echo "Input vcf file does not exist."
     exit 2
 fi
 
-working_dir=$(dirname "${input_vcf}")
 input_vcf_name=$(basename "${input_vcf}")
-mkdir "${working_dir}/freq_split" 
-cd "${working_dir}"
+
 
 if [ ! -f "${ac_file}" ]; then
     echo "AC stratification file does not exist."
     exit 2
 else
     for ac in $(cat "${ac_file}"); do
-	bcftools view -Ob -o "${working_dir}/freq_split/${input_vcf_name%.vcf}.AC${ac}.bcf" -e AC!="${ac}" "${input_vcf_name}"
+	bcftools view -Oz -o "${input_vcf_name%.vcf}.AC${ac}.vcf.gz" -e AC!="${ac}" "${input_vcf}"
     done 
 fi
 
@@ -43,12 +40,12 @@ else
     for ind in "${!af_list[@]}"; do 
 	if [[ "${ind}" == 0 ]]; then
 	    if [[ "${af_list[${ind}]}" != 0 ]]; then
-		bcftools view -Ob -o "${working_dir}/freq_split/${input_vcf_name%.vcf}.AF0-${af_list[${ind}]}.bcf" -e "AF>=${af_list[${ind}]}" "${input_vcf_name}"
+		bcftools view -Oz -o "${input_vcf_name%.vcf}.AF0-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]}" "${input_vcf}"
 	    fi
 	else
-            bcftools view -Ob -o "${working_dir}/freq_split/${input_vcf_name%.vcf}.AF${af_list[${ind}-1]}-${af_list[${ind}]}.bcf" -e "AF>=${af_list[${ind}]} || AF<${af_list[${ind}-1]}"  "${input_vcf_name}"
+            bcftools view -Oz -o "${input_vcf_name%.vcf}.AF${af_list[${ind}-1]}-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]} || AF<${af_list[${ind}-1]}"  "${input_vcf}"
 	    if [[ "${ind}" == "$((${#af_list[@]}-1))" ]] && [[ "${af_list[${ind}]}" != 1 ]]; then
-		bcftools view -Ob -o "${working_dir}/freq_split/${input_vcf_name%.vcf}.AF${af_list[${ind}]}-1.bcf" -e "AF<${af_list[${ind}]}" "${input_vcf_name}"
+		bcftools view -Oz -o "${input_vcf_name%.vcf}.AF${af_list[${ind}]}-1.vcf.gz" -e "AF<${af_list[${ind}]}" "${input_vcf}"
 	    fi
         fi
     done 
