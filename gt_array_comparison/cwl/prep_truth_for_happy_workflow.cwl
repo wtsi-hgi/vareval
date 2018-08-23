@@ -67,6 +67,19 @@ steps:
         valueFrom: $(inputs.vcf.basename).tbi
     out:
       [index]
+  - id: Make_truth_bed
+    run: extract_regions_from_vcf.cwl
+    scatter: vcf
+    in:
+      vcf:
+        source:
+          - Extract_sample/sample_vcf
+          - truth_vcf
+        linkMerge: merge_flattened
+      output_filename:
+        valueFrom: $(inputs.vcf.basename.split(".vcf")[0]).bed
+    out:
+      [bed]
   - id: Combine_sample_vcfs_and_tbis
     run: ../../subrepos/arvados-pipelines/cwl/expression-tools/combine_files.cwl
     scatter:
@@ -79,8 +92,12 @@ steps:
     out:
       [file_with_secondary_files]
 
+
 outputs:
-  - id: out
+  - id: out_vcfs
     type: File[]
     outputSource: Combine_sample_vcfs_and_tbis/file_with_secondary_files
+  - id: out_beds
+    type: File[]
+    outputSource: Make_truth_bed/bed
 
