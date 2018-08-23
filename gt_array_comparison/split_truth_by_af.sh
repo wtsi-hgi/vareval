@@ -28,7 +28,7 @@ if [ ! -f "${ac_file}" ]; then
     exit 2
 else
     for ac in $(cat "${ac_file}"); do
-	bcftools view -Oz -o "${input_vcf_name%.vcf}.AC${ac}.vcf.gz" -e AC!="${ac}" "${input_vcf}"
+	bcftools view -Oz -o "${input_vcf_name%.vcf.gz}.AC${ac}.vcf.gz" -e AC!="${ac}" "${input_vcf}"
     done 
 fi
 
@@ -40,12 +40,12 @@ else
     for ind in "${!af_list[@]}"; do 
 	if [[ "${ind}" == 0 ]]; then
 	    if [[ "${af_list[${ind}]}" != 0 ]]; then
-		bcftools view -Oz -o "${input_vcf_name%.vcf}.AF0-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]}" "${input_vcf}"
+		bcftools view -Oz -o "${input_vcf_name%.vcf.gz}.AF0-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]}" "${input_vcf}"
 	    fi
 	else
-            bcftools view -Oz -o "${input_vcf_name%.vcf}.AF${af_list[${ind}-1]}-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]} || AF<${af_list[${ind}-1]}"  "${input_vcf}"
+            bcftools view -Oz -o "${input_vcf_name%.vcf.gz}.AF${af_list[${ind}-1]}-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]} || AF<${af_list[${ind}-1]}"  "${input_vcf}"
 	    if [[ "${ind}" == "$((${#af_list[@]}-1))" ]] && [[ "${af_list[${ind}]}" != 1 ]]; then
-		bcftools view -Oz -o "${input_vcf_name%.vcf}.AF${af_list[${ind}]}-1.vcf.gz" -e "AF<${af_list[${ind}]}" "${input_vcf}"
+		bcftools view -Oz -o "${input_vcf_name%.vcf.gz}.AF${af_list[${ind}]}-1.vcf.gz" -e "AF<${af_list[${ind}]}" "${input_vcf}"
 	    fi
         fi
     done 
