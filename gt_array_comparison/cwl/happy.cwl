@@ -57,7 +57,7 @@ inputs:
     inputBinding:
       prefix: --stratification
   sdf_ref_name:
-    type: string?
+    type: Directory?
     inputBinding:
       prefix: --engine-vcfeval-template
 
