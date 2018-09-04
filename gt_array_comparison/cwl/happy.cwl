@@ -3,8 +3,9 @@ cwlVersion: v1.0
 id: run_hap.py
 
 requirements:
-  DockerRequirement:
-    dockerPull: pkrusche/hap.py
+- class: InlineJavascriptRequirement
+- class: DockerRequirement
+  dockerPull: pkrusche/hap.py
 
 baseCommand:
   - /opt/hap.py/bin/hap.py
@@ -67,5 +68,5 @@ outputs:
   happy_out:
     type: File[]
     outputBinding:
-      glob: $(inputs.output_fileprefix)
+      glob: $(inputs.output_fileprefix + "*")
 
