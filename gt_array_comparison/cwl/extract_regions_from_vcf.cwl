@@ -5,13 +5,17 @@ id: Make_bed_from_vcf
 requirements:
   DockerRequirement:
     dockerPull: ubuntu:14.04
+  InitialWorkDirRequirement:
+    listing:
+      - entry: $(inputs.vcf)
+        entryname: $(inputs.vcf.basename)
 
 baseCommand:
-  - bash
-  - -c
+  - "bash"
+  - "-c"
 
 arguments:
-  - gzcat $(inputs.vcf.basename) | grep -v "^#" | awk 'BEGIN { OFS="\t"; } { print $1, $2-1, $2-1+length($4); }' > $(inputs.output_filename)
+  - zcat $(inputs.vcf.basename) | grep -v "^#" | awk 'BEGIN { OFS="\\t"; } { print $1, $2-1, $2-1+length($4); }' > $(inputs.output_filename)
 
 inputs:
   vcf:
