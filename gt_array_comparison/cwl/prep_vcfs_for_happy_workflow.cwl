@@ -11,12 +11,8 @@ inputs:
     type: File
   - id: sample_list
     type: File
-    inputBinding:
-      loadContents: True
   - id: regions
     type: File
-    inputBinding:
-      loadContents: True
   - id: multisample_vcf
     type: File
   - id: threads
