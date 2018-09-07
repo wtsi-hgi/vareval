@@ -63,8 +63,6 @@ inputs:
       prefix: --engine-vcfeval-template
 
 outputs:
-  happy_stdout:
-    type: stdout
   happy_out:
     type: File[]
     outputBinding:
