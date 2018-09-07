@@ -57,7 +57,15 @@ inputs:
     type: File?
     inputBinding:
       prefix: --stratification
-  sdf_ref_name:
+  stratification-fixchr:
+    type: boolean?
+    inputBinding:
+      prefix: --stratification-fixchr
+  fixchr:
+    type: boolean?
+    inputBinding:
+      prefix: --fixchr
+  sdf_ref_dir:
     type: Directory?
     inputBinding:
       prefix: --engine-vcfeval-template
