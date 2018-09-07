@@ -29,6 +29,10 @@ inputs:
     inputBinding:
       position: 3
     doc: AF file, containing allele frequencies to be stratified by
+  region:
+    type: string
+    inputBinding:
+      position: 4
 
 outputs:
   stratified_vcfs:
