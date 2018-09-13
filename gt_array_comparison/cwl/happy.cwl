@@ -3,12 +3,42 @@ cwlVersion: v1.0
 id: run_hap.py
 
 requirements:
-- class: InlineJavascriptRequirement
-- class: DockerRequirement
-  dockerPull: pkrusche/hap.py
+  - class: DockerRequirement
+    dockerPull: pkrusche/hap.py
+  - class: InlineJavascriptRequirement
+    expressionLib:
+    - |-
+      function generate_stratif_file_list(input) {
+          if (!input) {
+              return "";
+          }
+
+          if(!Array.isArray(input)){
+              input = [input];
+          }
+
+          var output = [];
+          input.forEach(function(element) {
+              if (element.basename.includes("AF"))
+                  var region_name = "AF" + element.basename.split("AF")[1].split(".bed")[0];
+              else if (element.basename.includes("AC"))
+                  var region_name = "AC" + element.basename.split("AC")[1].split(".bed")[0];
+              output.push(region_name + "\t" + element.path);
+        })
+
+        return output.join("\n");
+      }
+  - class: InitialWorkDirRequirement
+    listing:
+      - entryname: happy.stratif_file
+        entry: $(generate_stratif_file_list(inputs.stratification))
 
 baseCommand:
   - /opt/hap.py/bin/hap.py
+
+arguments:
+  - "--stratification"
+  - "happy.stratif_file"
 
 inputs:
   truth_vcf:
@@ -54,9 +84,12 @@ inputs:
       prefix: --pass-only
     default: true
   stratification:
-    type: File?
-    inputBinding:
-      prefix: --stratification
+    type:
+    - 'null'
+    - type: array
+      items: File
+      inputBinding:
+        valueFrom: $(null)
   stratification-fixchr:
     type: boolean?
     inputBinding:
