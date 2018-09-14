@@ -20,6 +20,8 @@ inputs:
     type: File
   - id: sample_list
     type: File
+  - id: fasta_ref
+    type: File
   - id: threads
     type: int?
 
@@ -30,12 +32,43 @@ steps:
       input_file: regions
     out:
       [contents_array]
+  - id: Norm_vcf
+    run: bcftools_norm.cwl
+    in:
+      input_vcf: truth_vcf
+      ref: fasta_ref
+      out_type:
+        valueFrom: "z"
+      output_filename:
+        valueFrom: $(inputs.input_vcf.basename.split(".vcf")[0]).norm.vcf.gz
+      checkref:
+        valueFrom: "s"
+      multiallelics:
+        valueFrom: "+any"
+    out:
+      - normed_vcf
+  - id: Index_multisample_tbi
+    run: ../../subrepos/arvados-pipelines/cwl/tools/bcftools/bcftools-index-tbi.cwl
+    in:
+      threads: threads
+      vcf: Norm_vcf/normed_vcf
+      output_filename:
+        valueFrom: $(inputs.vcf.basename).tbi
+    out:
+      [index]
+  - id: Combine_multisample_vcf_and_tbi
+    run: ../../subrepos/arvados-pipelines/cwl/expression-tools/combine_files.cwl
+    in:
+      main_file:  Norm_vcf/normed_vcf
+      secondary_files: Index_multisample_tbi/index
+    out:
+      [file_with_secondary_files]
   - id: Split_by_af
     run: split_vcf_by_af.cwl
     scatter: region
     in:
       script: freq_split_script
-      input_vcf: truth_vcf
+      input_vcf: Norm_vcf/normed_vcf
       ac_file: ac_file
       af_file: af_file
       region: Make_regions_array/contents_array
@@ -65,7 +98,7 @@ steps:
       sample: Make_samples_array/contents_array
       output_filename:
         valueFrom: $(inputs.input_vcf.basename.split(".vcf")[0]).$(inputs.region).$(inputs.sample).vcf.gz
-      input_vcf: truth_vcf
+      input_vcf: Combine_multisample_vcf_and_tbi/file_with_secondary_files
       region: Make_regions_array/contents_array
     out:
       [sample_vcf]
