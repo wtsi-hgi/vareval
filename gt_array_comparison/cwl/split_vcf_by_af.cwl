@@ -35,9 +35,9 @@ inputs:
       position: 4
 
 outputs:
-  stratified_vcfs:
+  stratified_beds:
     type:
       type: array
       items: File
     outputBinding:
-      glob: "*.vcf.gz"
+      glob: "*.bed"

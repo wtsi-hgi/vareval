@@ -35,7 +35,7 @@ if [ ! -f "${ac_file}" ]; then
     exit 2
 else
     for ac in $(cat "${ac_file}"); do
-	bcftools view -Oz"${region_flag}" -o "${input_vcf_name%.vcf.gz}.${region}.AC${ac}.vcf.gz" -e AC!="${ac}" "${input_vcf}"
+	bcftools view -Oz"${region_flag}" -e AC!="${ac}" "${input_vcf}" | grep -v "^#" | awk 'BEGIN { OFS="\\t"; } { print $1, $2-1, $2-1+length($4); }' > "${input_vcf_name%.vcf.gz}.${region}.AC${ac}.bed"
     done 
 fi
 
@@ -47,12 +47,12 @@ else
     for ind in "${!af_list[@]}"; do 
 	if [[ "${ind}" == 0 ]]; then
 	    if [[ "${af_list[${ind}]}" != 0 ]]; then
-		bcftools view -Oz"${region_flag}" -o "${input_vcf_name%.vcf.gz}.${region}.AF0-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]}" "${input_vcf}"
+		bcftools view -Oz"${region_flag}" -e "AF>=${af_list[${ind}]}" "${input_vcf}" | grep -v "^#" | awk 'BEGIN { OFS="\\t"; } { print $1, $2-1, $2-1+length($4); }' > "${input_vcf_name%.vcf.gz}.${region}.AF0-${af_list[${ind}]}.bed"
 	    fi
 	else
-            bcftools view -Oz"${region_flag}" -o "${input_vcf_name%.vcf.gz}.${region}.AF${af_list[${ind}-1]}-${af_list[${ind}]}.vcf.gz" -e "AF>=${af_list[${ind}]} || AF<${af_list[${ind}-1]}"  "${input_vcf}"
+            bcftools view -Oz"${region_flag}" -e "AF>=${af_list[${ind}]} || AF<${af_list[${ind}-1]}"  "${input_vcf}" | grep -v "^#" | awk 'BEGIN { OFS="\\t"; } { print $1, $2-1, $2-1+length($4); }' > "${input_vcf_name%.vcf.gz}.${region}.AF${af_list[${ind}-1]}-${af_list[${ind}]}.bed"
 	    if [[ "${ind}" == "$((${#af_list[@]}-1))" ]] && [[ "${af_list[${ind}]}" != 1 ]]; then
-		bcftools view -Oz"${region_flag}" -o "${input_vcf_name%.vcf.gz}.${region}.AF${af_list[${ind}]}-1.vcf.gz" -e "AF<${af_list[${ind}]}" "${input_vcf}"
+		bcftools view -Oz"${region_flag}" -e "AF<${af_list[${ind}]}" "${input_vcf}" | grep -v "^#" | awk 'BEGIN { OFS="\\t"; } { print $1, $2-1, $2-1+length($4); }' > "${input_vcf_name%.vcf.gz}.${region}.AF${af_list[${ind}]}-1.bed"
 	    fi
         fi
     done 
