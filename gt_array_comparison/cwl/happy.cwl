@@ -38,7 +38,7 @@ baseCommand:
 
 arguments:
   - "--stratification"
-  - "happy.stratif_file"
+  - "happy.stratif_filelist"
 
 inputs:
   truth_vcf:
@@ -83,7 +83,7 @@ inputs:
     inputBinding:
       prefix: --pass-only
     default: true
-  stratification:
+  stratification_beds:
     type:
     - 'null'
     - type: array
@@ -108,4 +108,8 @@ outputs:
     type: File[]
     outputBinding:
       glob: $(inputs.output_fileprefix + "*")
+  stratification_file:
+    type: File
+    outputBinding:
+      glob: "happy.stratif_filelist"
 

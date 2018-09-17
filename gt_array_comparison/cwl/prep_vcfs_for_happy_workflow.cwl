@@ -48,8 +48,8 @@ steps:
   - id: Extract_sample
     run: ./bcftools_view.cwl
     scatter: 
-      - sample
       - input_vcf
+      - sample
     scatterMethod: flat_crossproduct
     in:
       out_type: 
@@ -84,7 +84,7 @@ steps:
       [file_with_secondary_files]
 
 outputs:
-  - id: out
+  - id: out_vcfs
     type: File[]
     outputSource: Combine_sample_vcfs_and_tbis/file_with_secondary_files
 
