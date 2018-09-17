@@ -74,12 +74,6 @@ steps:
       region: Make_regions_array/contents_array
     out:
       [stratified_beds]
-#  - id: Flatten_af_files_array
-#    run: ../../subrepos/arvados-pipelines/cwl/expression-tools/flatten-array-file.cwl
-#    in:
-#      2d-array: Split_by_af/stratified_vcfs
-#    out:
-#      [flattened_array]
   - id: Make_samples_array
     run: file_contents_to_array.cwl
     in:
@@ -122,15 +116,6 @@ steps:
         valueFrom: $(inputs.vcf.basename.split(".vcf")[0]).bed
     out:
       [bed]
-#  - id: Make_af_stratif_beds
-#    run: extract_regions_from_vcf.cwl
-#    scatter: vcf
-#    in:
-#      vcf: Flatten_af_files_array/flattened_array
-#      output_filename:
-#        valueFrom: $(inputs.vcf.basename.split(".vcf")[0]).bed
-#    out:
-#      [bed]
   - id: Combine_sample_vcfs_and_tbis
     run: ../../subrepos/arvados-pipelines/cwl/expression-tools/combine_files.cwl
     scatter:

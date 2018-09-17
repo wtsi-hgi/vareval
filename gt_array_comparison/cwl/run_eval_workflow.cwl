@@ -83,6 +83,8 @@ steps:
       ref: fasta_ref
       sdf_ref_dir: Prep_ref/output_dir
       stratification_beds: Format_stratification_beds/multiplied-2d-array
+      output_fileprefix:
+        valueFrom: $("output." + inputs.truth_vcf.basename.split(".vcf")[0].split(".").slice(-2).join("."))
     out:
       [happy_out]
 

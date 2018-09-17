@@ -30,8 +30,8 @@ requirements:
       }
   - class: InitialWorkDirRequirement
     listing:
-      - entryname: happy.stratif_file
-        entry: $(generate_stratif_file_list(inputs.stratification))
+      - entryname: happy.stratif_filelist
+        entry: $(generate_stratif_file_list(inputs.stratification_beds))
 
 baseCommand:
   - /opt/hap.py/bin/hap.py
