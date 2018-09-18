@@ -60,12 +60,19 @@ steps:
         valueFrom: $(inputs.ref_fasta.basename.split(".fa")[0]).sdf
     out:
       - output_dir
+  - id: Make_samples_array
+    run: file_contents_to_array.cwl
+    in:
+      input_file: sample_list
+    out:
+      [contents_array]
   - id: Format_stratification_beds
     run: multiply_inner_arrays_in_2d_arrays.cwl
     in:
       2d_array: Prep_truth/af_stratif_beds
       multiplication_factor:
-        valueFrom: $( 3 )
+        source: Make_samples_array/contents_array
+        valueFrom: $(self.length)
     out:
       - multiplied-2d-array
   - id: Run_happy
