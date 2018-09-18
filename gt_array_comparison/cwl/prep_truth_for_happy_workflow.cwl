@@ -16,22 +16,16 @@ inputs:
     type: File
   - id: af_file
     type: File
-  - id: regions
-    type: File
-  - id: sample_list
-    type: File
+  - id: regions_array
+    type: string[]
+  - id: samples_array
+    type: string[]
   - id: fasta_ref
     type: File
   - id: threads
     type: int?
 
 steps:
-  - id: Make_regions_array
-    run: file_contents_to_array.cwl
-    in:
-      input_file: regions
-    out:
-      [contents_array]
   - id: Norm_vcf
     run: bcftools_norm.cwl
     in:
@@ -71,15 +65,9 @@ steps:
       input_vcf: Norm_vcf/normed_vcf
       ac_file: ac_file
       af_file: af_file
-      region: Make_regions_array/contents_array
+      region: regions_array
     out:
       [stratified_beds]
-  - id: Make_samples_array
-    run: file_contents_to_array.cwl
-    in:
-      input_file: sample_list
-    out:
-      [contents_array]
   - id: Extract_region_sample
     run: ./bcftools_view.cwl
     scatter:
@@ -89,11 +77,11 @@ steps:
     in:
       out_type:
         valueFrom: "z"
-      sample: Make_samples_array/contents_array
+      sample: samples_array
       output_filename:
         valueFrom: $(inputs.input_vcf.basename.split(".vcf")[0]).$(inputs.region).$(inputs.sample).vcf.gz
       input_vcf: Combine_multisample_vcf_and_tbi/file_with_secondary_files
-      region: Make_regions_array/contents_array
+      region: regions_array
     out:
       [sample_vcf]
   - id: Index_tbi

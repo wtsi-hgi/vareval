@@ -11,25 +11,19 @@ inputs:
     type: File
   - id: sample_list
     type: File
-  - id: regions
-    type: File
+  - id: regions_array
+    type: string[]
   - id: multisample_vcf
     type: File
   - id: threads
     type: int?
 
 steps:
-  - id: Make_regions_array
-    run: file_contents_to_array.cwl
-    in:
-      input_file: regions
-    out:
-      [contents_array]
   - id: Clean_vcfs2
     run: ./clean_vcfs2.cwl
     scatter: region
     in:
-      region: Make_regions_array/contents_array
+      region: regions_array
       out_type:
         valueFrom: "z"
       ref: fasta_ref

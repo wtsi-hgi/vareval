@@ -14,7 +14,7 @@ inputs:
   - id: sample_list
     type: File
   - id: regions
-    type: File?
+    type: File
   - id: test_vcf
     type: File
   - id: truth_vcf
@@ -29,6 +29,18 @@ inputs:
     type: int?
 
 steps:
+  - id: Make_regions_array
+    run: file_contents_to_array.cwl
+    in:
+      input_file: regions
+    out:
+      [contents_array]
+  - id: Make_samples_array
+    run: file_contents_to_array.cwl
+    in:
+      input_file: sample_list
+    out:
+      [contents_array]
   - id: Prep_truth
     run: prep_truth_for_happy_workflow.cwl
     in:
@@ -37,8 +49,8 @@ steps:
       truth_vcf: truth_vcf
       ac_file: ac_file
       af_file: af_file
-      sample_list: sample_list
-      regions: regions
+      samples_array: Make_samples_array/contents_array
+      regions_array: Make_regions_array/contents_array
     out:
       - out_vcfs
       - truth_beds
@@ -48,7 +60,7 @@ steps:
     in:
       fasta_ref: fasta_ref
       sample_list: sample_list
-      regions: regions
+      regions_array: Make_regions_array/contents_array
       multisample_vcf: test_vcf
     out:
       [out_vcfs]
@@ -60,12 +72,6 @@ steps:
         valueFrom: $(inputs.ref_fasta.basename.split(".fa")[0]).sdf
     out:
       - output_dir
-  - id: Make_samples_array
-    run: file_contents_to_array.cwl
-    in:
-      input_file: sample_list
-    out:
-      [contents_array]
   - id: Format_stratification_beds
     run: multiply_inner_arrays_in_2d_arrays.cwl
     in:
